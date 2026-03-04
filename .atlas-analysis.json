@@ -1,0 +1,179 @@
+{
+  "projectType": "saas",
+  "projectName": "NewKipital",
+  "projectDescription": "Enterprise HR and payroll management system with multi-tenant support, real-time notifications, and comprehensive employee lifecycle management.",
+  "theme": "linden",
+  "primaryColor": "#20638d",
+  "lightColor": "#3b82f6",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Authentication",
+            "pages": [
+              "auth/overview",
+              "auth/microsoft-sso",
+              "auth/session-management",
+              "auth/csrf-protection"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/companies",
+              "features/employees",
+              "features/departments",
+              "features/positions"
+            ]
+          },
+          {
+            "group": "Payroll Management",
+            "pages": [
+              "payroll/overview",
+              "payroll/articles",
+              "payroll/movements",
+              "payroll/holidays",
+              "payroll/processing"
+            ]
+          },
+          {
+            "group": "Personal Actions",
+            "pages": [
+              "personal-actions/overview",
+              "personal-actions/absences",
+              "personal-actions/bonuses",
+              "personal-actions/overtime",
+              "personal-actions/deductions"
+            ]
+          },
+          {
+            "group": "Access Control",
+            "pages": [
+              "access-control/overview",
+              "access-control/roles",
+              "access-control/permissions",
+              "access-control/user-assignment"
+            ]
+          },
+          {
+            "group": "Integration",
+            "pages": [
+              "integration/events",
+              "integration/notifications",
+              "integration/real-time"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/auth/login",
+              "api/auth/logout",
+              "api/auth/refresh",
+              "api/auth/me"
+            ]
+          },
+          {
+            "group": "Companies",
+            "pages": [
+              "api/companies/list",
+              "api/companies/create",
+              "api/companies/update",
+              "api/companies/get"
+            ]
+          },
+          {
+            "group": "Employees",
+            "pages": [
+              "api/employees/list",
+              "api/employees/create",
+              "api/employees/update",
+              "api/employees/get",
+              "api/employees/catalogs"
+            ]
+          },
+          {
+            "group": "Payroll",
+            "pages": [
+              "api/payroll/list",
+              "api/payroll/create",
+              "api/payroll/process",
+              "api/payroll/verify",
+              "api/payroll/apply"
+            ]
+          },
+          {
+            "group": "Access Control",
+            "pages": [
+              "api/access-control/roles",
+              "api/access-control/permissions",
+              "api/access-control/user-assignment"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-tenant company management",
+    "Employee lifecycle management",
+    "Payroll processing and verification",
+    "Personal actions (absences, bonuses, overtime, deductions)",
+    "Role-based access control with fine-grained permissions",
+    "Microsoft SSO integration",
+    "Real-time notifications via WebSocket",
+    "Comprehensive audit trails",
+    "Department and position management",
+    "Payroll articles and movements tracking",
+    "Holiday calendar management"
+  ],
+  "publicApiSurface": [
+    "POST /api/auth/login",
+    "POST /api/auth/microsoft/exchange",
+    "POST /api/auth/validate",
+    "POST /api/auth/refresh",
+    "GET /api/auth/me",
+    "POST /api/auth/logout",
+    "GET /api/companies",
+    "POST /api/companies",
+    "GET /api/employees",
+    "POST /api/employees",
+    "GET /api/departments",
+    "POST /api/departments",
+    "GET /api/positions",
+    "POST /api/positions",
+    "GET /api/payroll",
+    "POST /api/payroll",
+    "PATCH /api/payroll/:id/process",
+    "PATCH /api/payroll/:id/verify",
+    "PATCH /api/payroll/:id/apply",
+    "GET /api/payroll-articles",
+    "POST /api/payroll-articles",
+    "GET /api/payroll-movements",
+    "POST /api/payroll-movements",
+    "GET /api/payroll-holidays",
+    "POST /api/payroll-holidays",
+    "GET /api/personal-actions",
+    "POST /api/personal-actions",
+    "GET /api/access-control/roles",
+    "POST /api/access-control/roles",
+    "GET /api/access-control/permissions",
+    "POST /api/access-control/user-assignment",
+    "GET /api/notifications"
+  ]
+}
