@@ -1,0 +1,359 @@
+---
+title: Domain Events
+description: Event-driven architecture and domain event system for reliable integration
+---
+
+## Overview
+
+NewKipital uses an event-driven architecture to decouple modules and enable reliable asynchronous processing. The system implements:
+
+- **Domain Events**: Business events emitted by modules when significant state changes occur
+- **Event Outbox Pattern**: Guarantees at-least-once delivery of events to external systems
+- **Audit Trail**: Automatic recording of all business operations for compliance and debugging
+
+<Note>
+  Domain events use the transactional outbox pattern to ensure events are never lost, even if external systems are temporarily unavailable.
+</Note>
+
+## Domain Event System
+
+### Architecture
+
+The event system operates in two phases:
+
+**Phase 1 (Current)**: Synchronous local events via `@nestjs/event-emitter`
+- Events are handled in the same process and transaction
+- Suitable for lightweight operations (logging, notifications, state updates)
+
+**Phase 2 (Future)**: Asynchronous distributed events via Redis/RabbitMQ
+- Events are queued and processed by background workers
+- Enables heavy operations (calculations, external sync, batch processing)
+
+### Event Interface
+
+All domain events implement this base interface:
+
+```typescript
+interface DomainEvent<T = unknown> {
+  eventName: string;      // Format: domain.action (e.g., "employee.created")
+  payload: T;             // Event-specific data
+  occurredAt: Date;       // When the event occurred
+  triggeredBy: string;    // User or system that triggered the event
+}
+```
+
+<Info>
+  See `src/common/events/domain-event.interface.ts:1` for the complete interface definition.
+</Info>
+
+## Event Catalog
+
+The system defines domain events across multiple modules:
+
+### Employee Events
+
+```typescript
+DOMAIN_EVENTS.EMPLOYEE = {
+  CREATED: 'employee.created',
+  MOVED: 'employee.moved',
+  DEACTIVATED: 'employee.deactivated',
+  EMAIL_CHANGED: 'employee.email_changed',
+  PAY_PERIOD_CHANGED: 'employee.pay_period_changed',
+  CONTEXT_UPDATED: 'employee.context_updated'
+}
+```
+
+**Example Payload** (`employee.created`):
+```json
+{
+  "eventName": "employee.created",
+  "payload": {
+    "employeeId": "12345",
+    "companyId": "100",
+    "fullName": "Juan Pérez",
+    "userId": "5001"
+  },
+  "occurredAt": "2026-03-04T10:30:00Z",
+  "triggeredBy": "user:1234"
+}
+```
+
+### Payroll Events
+
+```typescript
+DOMAIN_EVENTS.PAYROLL = {
+  OPENED: 'payroll.opened',
+  VERIFIED: 'payroll.verified',
+  APPLIED: 'payroll.applied',
+  REOPENED: 'payroll.reopened',
+  DEACTIVATED: 'payroll.deactivated'
+}
+```
+
+**Example Payload** (`payroll.applied`):
+```json
+{
+  "eventName": "payroll.applied",
+  "payload": {
+    "payrollId": "789",
+    "companyId": "100",
+    "appliedBy": "5001",
+    "totalAmount": 150000.50
+  },
+  "occurredAt": "2026-03-04T14:20:00Z",
+  "triggeredBy": "user:5001"
+}
+```
+
+### Personal Action Events
+
+```typescript
+DOMAIN_EVENTS.PERSONAL_ACTION = {
+  CREATED: 'personal-action.created',
+  APPROVED: 'personal-action.approved',
+  REJECTED: 'personal-action.rejected',
+  SCHEDULED: 'personal-action.scheduled',
+  CANCELED: 'personal-action.canceled'
+}
+```
+
+### Access Control Events
+
+```typescript
+DOMAIN_EVENTS.ACCESS_CONTROL = {
+  ROLE_ASSIGNED: 'role.assigned',
+  PERMISSIONS_CHANGED: 'permissions.changed'
+}
+```
+
+### Company Events
+
+```typescript
+DOMAIN_EVENTS.COMPANY = {
+  CREATED: 'company.created',
+  UPDATED: 'company.updated'
+}
+```
+
+<Info>
+  The complete event catalog is defined in `src/common/events/event-names.ts:1`
+</Info>
+
+## Recording Domain Events
+
+Use the `DomainEventsService` to record events that need to be persisted and potentially consumed by external systems:
+
+```typescript
+import { DomainEventsService } from '@/modules/integration/domain-events.service';
+
+@Injectable()
+export class EmployeesService {
+  constructor(
+    private readonly domainEvents: DomainEventsService
+  ) {}
+
+  async createEmployee(dto: CreateEmployeeDto, userId: number) {
+    // ... create employee logic
+
+    await this.domainEvents.record({
+      aggregateType: 'employee',
+      aggregateId: employee.id.toString(),
+      eventName: 'employee.created',
+      payload: {
+        employeeId: employee.id,
+        companyId: employee.idEmpresa,
+        fullName: `${employee.nombre} ${employee.apellido1}`,
+        userId: employee.idUsuario
+      },
+      occurredAt: new Date(),
+      createdBy: userId
+    });
+  }
+}
+```
+
+### Event Properties
+
+<ParamField path="aggregateType" type="string" required>
+  The domain entity type (e.g., `employee`, `payroll`, `company`)
+</ParamField>
+
+<ParamField path="aggregateId" type="string" required>
+  The unique identifier of the entity that triggered the event
+</ParamField>
+
+<ParamField path="eventName" type="string" required>
+  The event name following the pattern `domain.action` (e.g., `employee.created`)
+</ParamField>
+
+<ParamField path="payload" type="object" required>
+  Event-specific data containing relevant information about what happened
+</ParamField>
+
+<ParamField path="occurredAt" type="Date">
+  When the event occurred. Defaults to `new Date()` if not provided
+</ParamField>
+
+<ParamField path="createdBy" type="number">
+  The user ID who triggered the event. Null for system-generated events
+</ParamField>
+
+<ParamField path="idempotencyKey" type="string">
+  Unique key to prevent duplicate event processing. Auto-generated from `eventName:aggregateId:timestamp` if not provided
+</ParamField>
+
+## Event Storage
+
+Events are stored in the `sys_domain_events` table with the following schema:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id_domain_event` | bigint | Auto-incrementing primary key |
+| `aggregate_type_domain_event` | varchar(100) | Entity type (e.g., "employee") |
+| `aggregate_id_domain_event` | varchar(64) | Entity identifier |
+| `event_name_domain_event` | varchar(120) | Event name (indexed) |
+| `idempotency_key_domain_event` | varchar(140) | Unique constraint for deduplication |
+| `payload_domain_event` | json | Event data |
+| `status_domain_event` | varchar(20) | Processing status: `pending`, `published`, `failed` |
+| `occurred_at_domain_event` | datetime | Event timestamp |
+| `published_at_domain_event` | datetime | When the event was published to external systems |
+| `created_by_domain_event` | int | User who triggered the event |
+
+<Note>
+  The `idempotency_key` ensures that duplicate events are silently ignored, preventing double-processing.
+</Note>
+
+## Audit Outbox Pattern
+
+The `AuditOutboxService` provides a specialized interface for recording audit events:
+
+```typescript
+import { AuditOutboxService } from '@/modules/integration/audit-outbox.service';
+
+@Injectable()
+export class EmployeesService {
+  constructor(
+    private readonly auditOutbox: AuditOutboxService
+  ) {}
+
+  async updateEmployee(id: number, dto: UpdateEmployeeDto, userId: number) {
+    const before = await this.findOne(id);
+    // ... update logic
+    const after = await this.findOne(id);
+
+    this.auditOutbox.publish({
+      modulo: 'employees',
+      accion: 'update',
+      entidad: 'employee',
+      entidadId: id,
+      actorUserId: userId,
+      companyContextId: employee.idEmpresa,
+      descripcion: `Empleado actualizado: ${employee.nombre}`,
+      payloadBefore: { nombre: before.nombre, email: before.email },
+      payloadAfter: { nombre: after.nombre, email: after.email },
+      metadata: { changedFields: ['nombre', 'email'] },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+  }
+}
+```
+
+### Audit Event Properties
+
+<ParamField path="modulo" type="string" required>
+  The module name (e.g., `employees`, `payroll`, `access-control`)
+</ParamField>
+
+<ParamField path="accion" type="string" required>
+  The action performed (e.g., `create`, `update`, `delete`, `approve`)
+</ParamField>
+
+<ParamField path="entidad" type="string" required>
+  The entity type affected (e.g., `employee`, `role`, `payroll`)
+</ParamField>
+
+<ParamField path="entidadId" type="string | number">
+  The ID of the affected entity
+</ParamField>
+
+<ParamField path="actorUserId" type="number">
+  The user who performed the action
+</ParamField>
+
+<ParamField path="companyContextId" type="number">
+  The company context where the action occurred
+</ParamField>
+
+<ParamField path="descripcion" type="string" required>
+  Human-readable description of what happened
+</ParamField>
+
+<ParamField path="payloadBefore" type="object">
+  State before the change (for updates)
+</ParamField>
+
+<ParamField path="payloadAfter" type="object">
+  State after the change
+</ParamField>
+
+<ParamField path="metadata" type="object">
+  Additional context (e.g., changed fields, validation errors)
+</ParamField>
+
+<ParamField path="ip" type="string">
+  Client IP address
+</ParamField>
+
+<ParamField path="userAgent" type="string">
+  Client user agent string
+</ParamField>
+
+<Warning>
+  Audit events are fire-and-forget. If recording fails, a warning is logged but the operation continues. This prevents audit failures from blocking business operations.
+</Warning>
+
+## Event Processing
+
+Events follow this lifecycle:
+
+1. **Recording**: Event is saved to `sys_domain_events` with status `pending`
+2. **Publishing**: Background worker picks up pending events and publishes to consumers
+3. **Completion**: Status updated to `published` with timestamp
+4. **Retry**: Failed events remain `pending` and are retried automatically
+
+<Info>
+  The background worker implementation is in `src/modules/integration/audit-worker.service.ts:1`
+</Info>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Descriptive Names" icon="tag">
+    Follow the `domain.action` pattern consistently. Use past tense for actions (e.g., `created`, `updated`, `applied`).
+  </Card>
+  
+  <Card title="Keep Payloads Minimal" icon="minimize">
+    Include only essential data. Avoid embedding large objects or sensitive information.
+  </Card>
+  
+  <Card title="Emit After Commit" icon="database">
+    Record events after database changes are committed to avoid emitting events for failed transactions.
+  </Card>
+  
+  <Card title="Use Idempotency Keys" icon="key">
+    Always provide idempotency keys for events that could be triggered multiple times.
+  </Card>
+</CardGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Notifications" icon="bell" href="/integration/notifications">
+    Learn how to send real-time notifications to users
+  </Card>
+  
+  <Card title="Real-time Updates" icon="bolt" href="/integration/real-time">
+    Implement WebSocket and SSE for live data streaming
+  </Card>
+</CardGroup>

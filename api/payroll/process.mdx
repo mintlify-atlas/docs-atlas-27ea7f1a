@@ -1,0 +1,161 @@
+---
+title: "Process Payroll"
+api: "PATCH /payroll/{id}/process"
+description: "Process a payroll by creating snapshots of employees, inputs, and calculating results. Transitions from ABIERTA to EN_PROCESO state."
+---
+
+## Authorization
+
+Requires `payroll:process` permission.
+
+## Path Parameters
+
+<ParamField path="id" type="number" required>
+  Unique identifier of the payroll to process.
+</ParamField>
+
+## Workflow
+
+The process operation performs the following steps in a transaction:
+
+1. **Validates state** - Only ABIERTA (Open) payrolls can be processed
+2. **Clears existing data** - Removes any previous snapshots and results
+3. **Creates employee snapshots** - Captures current state of active employees in the period
+4. **Creates input snapshots** - Records salary inputs, bonuses, deductions, and vacation accruals
+5. **Calculates results** - Computes gross, deductions, and net amounts for each employee
+6. **Updates state** - Transitions payroll to EN_PROCESO (Processing)
+7. **Records timestamp** - Sets `lastSnapshotAt` to current time
+
+## State Transition
+
+<ResponseField name="Before" type="string">
+  `ABIERTA` (estado = 1)
+</ResponseField>
+
+<ResponseField name="After" type="string">
+  `EN_PROCESO` (estado = 2)
+</ResponseField>
+
+## Response
+
+Returns the updated payroll calendar object with all fields.
+
+<ResponseField name="id" type="number" required>
+  The payroll identifier.
+</ResponseField>
+
+<ResponseField name="estado" type="number" required>
+  Will be `2` (EN_PROCESO) after successful processing.
+</ResponseField>
+
+<ResponseField name="lastSnapshotAt" type="string" required>
+  Timestamp when snapshots were created (ISO 8601 datetime).
+</ResponseField>
+
+<ResponseField name="versionLock" type="number" required>
+  Version number incremented by 1.
+</ResponseField>
+
+<ResponseField name="fechaModificacion" type="string" required>
+  Updated to current timestamp.
+</ResponseField>
+
+<ResponseField name="modificadoPor" type="number">
+  User ID who processed the payroll.
+</ResponseField>
+
+All other fields from the payroll calendar are included in the response.
+
+## What Gets Snapshotted
+
+### Employee Snapshots
+- Active employees during the payroll period
+- Employee details (name, identification, position)
+- Contract information (hire date, salary, department)
+- Account numbers for payments
+- Tax and social security settings
+
+### Input Snapshots
+- Base salary components
+- Approved bonuses and commissions
+- Deductions (loans, garnishments, advances)
+- Vacation accruals for the period
+- Personal actions effective in the period
+- Time attendance records
+
+### Results Calculated
+- Gross pay per employee
+- Total deductions per employee
+- Net pay per employee
+
+## Example Request
+
+```bash
+curl -X PATCH "https://api.newkipital.com/payroll/456/process" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Example Response
+
+```json
+{
+  "id": 456,
+  "idEmpresa": 123,
+  "idPeriodoPago": 78,
+  "nombrePlanilla": "Quincena 1 - Marzo 2026",
+  "tipoPlanilla": "Regular",
+  "fechaInicioPeriodo": "2026-03-01",
+  "fechaFinPeriodo": "2026-03-15",
+  "moneda": "CRC",
+  "estado": 2,
+  "esInactivo": 0,
+  "versionLock": 1,
+  "lastSnapshotAt": "2026-03-05T14:30:00Z",
+  "requiresRecalculation": 0,
+  "fechaModificacion": "2026-03-05T14:30:00Z",
+  "modificadoPor": 789
+}
+```
+
+## Error Responses
+
+### 400 Bad Request - Wrong State
+
+```json
+{
+  "statusCode": 400,
+  "message": "Solo se puede procesar una planilla en estado Abierta",
+  "error": "Bad Request"
+}
+```
+
+### 400 Bad Request - Inactive Payroll
+
+```json
+{
+  "statusCode": 400,
+  "message": "No se puede procesar una planilla inactiva",
+  "error": "Bad Request"
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "statusCode": 404,
+  "message": "Planilla #456 no encontrada",
+  "error": "Not Found"
+}
+```
+
+## Notes
+
+- Processing is idempotent - calling it multiple times on an ABIERTA payroll will recreate snapshots
+- All previous snapshots and results are deleted before creating new ones
+- The operation runs in a transaction - if any step fails, all changes are rolled back
+- Employee vacation balances are accrued during processing
+- Personal actions (salary changes, promotions, etc.) effective in the period are applied
+- A domain event is emitted after successful processing for audit purposes
+- The payroll must be in ABIERTA state and not marked as inactive
+- After processing, the payroll can be verified or reopened for corrections

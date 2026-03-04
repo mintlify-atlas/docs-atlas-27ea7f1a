@@ -1,0 +1,423 @@
+---
+title: 'Payroll Holidays'
+description: 'Manage the holiday calendar for accurate payroll calculations and compliance'
+---
+
+## Overview
+
+Payroll Holidays (Feriados de Planilla) define the company's holiday calendar, which is essential for:
+- Calculating overtime pay on holidays
+- Applying holiday pay premiums (double pay, time-and-a-half)
+- Ensuring compliance with Costa Rican labor law
+- Accurate working day calculations
+
+The holiday system supports different types of holidays with varying pay rules.
+
+## Entity Structure
+
+### PayrollHoliday
+
+```typescript
+interface PayrollHoliday {
+  id: number;
+  nombre: string;           // Holiday name
+  tipo: string;             // Holiday type
+  fechaInicio: string;      // Start date (YYYY-MM-DD)
+  fechaFin: string;         // End date (YYYY-MM-DD)
+  descripcion: string;      // Description
+  fechaCreacion: Date;
+  fechaModificacion: Date;
+}
+```
+
+## Holiday Types
+
+The system supports four types of holidays, based on Costa Rican labor regulations:
+
+```typescript
+export const PAYROLL_HOLIDAY_TYPES = [
+  'OBLIGATORIO_PAGO_DOBLE',      // Mandatory - Double pay
+  'OBLIGATORIO_PAGO_SIMPLE',     // Mandatory - Regular pay
+  'MOVIBLE',                     // Movable holiday
+  'NO_OBLIGATORIO',              // Non-mandatory
+] as const;
+```
+
+<AccordionGroup>
+  <Accordion title="OBLIGATORIO_PAGO_DOBLE" icon="circle-dollar">
+    **Mandatory Holiday with Double Pay**
+    
+    If an employee works on this day, they receive:
+    - Regular day's pay (guaranteed even if not working)
+    - **PLUS** 100% premium for working (double pay total)
+    
+    **Costa Rican Examples:**
+    - January 1 (New Year's Day)
+    - April 11 (Battle of Rivas)
+    - May 1 (Labor Day)
+    - July 25 (Annexation of Guanacaste)
+    - August 2 (Our Lady of Los Angeles)
+    - August 15 (Mother's Day)
+    - September 15 (Independence Day)
+    - December 25 (Christmas)
+  </Accordion>
+  
+  <Accordion title="OBLIGATORIO_PAGO_SIMPLE" icon="calendar">
+    **Mandatory Holiday with Regular Pay**
+    
+    Employees receive their regular day's pay whether they work or not. If they work, no additional premium is required (though companies may offer one voluntarily).
+    
+    **Example:**
+    - Company-specific holidays
+    - Regional holidays (varies by canton)
+  </Accordion>
+  
+  <Accordion title="MOVIBLE" icon="calendar-days">
+    **Movable Holiday**
+    
+    Holidays that can be moved to another date (typically to create long weekends). The actual rest day may differ from the official holiday date.
+    
+    **Costa Rican Example:**
+    - October 12 (Cultures Day) - Often moved to the nearest Monday
+  </Accordion>
+  
+  <Accordion title="NO_OBLIGATORIO" icon="calendar-minus">
+    **Non-Mandatory Holiday**
+    
+    Observed days that are not legally mandated as paid holidays. Companies may choose to give time off, but it's not required by law.
+    
+    **Examples:**
+    - Holy Thursday
+    - Good Friday
+    - December 24 (Christmas Eve)
+    - December 31 (New Year's Eve)
+  </Accordion>
+</AccordionGroup>
+
+## Creating Holidays
+
+### API Endpoint
+
+```http
+POST /api/payroll-holidays
+Content-Type: application/json
+```
+
+### Request Body
+
+```typescript
+interface CreatePayrollHolidayDto {
+  nombre: string;           // Required: Holiday name (max: 200 chars)
+  tipo: HolidayType;       // Required: One of the holiday types
+  fechaInicio: string;     // Required: Start date (ISO 8601 date string)
+  fechaFin: string;        // Required: End date (ISO 8601 date string)
+  descripcion?: string;    // Optional: Description (max: 2000 chars)
+}
+```
+
+### Example: New Year's Day
+
+```json
+{
+  "nombre": "Año Nuevo",
+  "tipo": "OBLIGATORIO_PAGO_DOBLE",
+  "fechaInicio": "2026-01-01",
+  "fechaFin": "2026-01-01",
+  "descripcion": "Feriado nacional de pago obligatorio doble"
+}
+```
+
+### Example: Holy Week (Multi-Day)
+
+```json
+{
+  "nombre": "Semana Santa",
+  "tipo": "NO_OBLIGATORIO",
+  "fechaInicio": "2026-04-09",
+  "fechaFin": "2026-04-10",
+  "descripcion": "Jueves y Viernes Santo - días de observancia religiosa"
+}
+```
+
+<Info>
+For multi-day holidays, set `fechaInicio` to the first day and `fechaFin` to the last day. The system treats the entire range as a holiday period.
+</Info>
+
+## Updating Holidays
+
+### API Endpoint
+
+```http
+PATCH /api/payroll-holidays/:id
+Content-Type: application/json
+```
+
+### Request Body
+
+All fields are optional:
+
+```typescript
+interface UpdatePayrollHolidayDto {
+  nombre?: string;
+  tipo?: HolidayType;
+  fechaInicio?: string;
+  fechaFin?: string;
+  descripcion?: string;
+}
+```
+
+### Example: Correct Date
+
+```json
+{
+  "fechaInicio": "2026-10-12",
+  "fechaFin": "2026-10-12"
+}
+```
+
+## Querying Holidays
+
+### List All Holidays
+
+```http
+GET /api/payroll-holidays
+```
+
+### Filter by Date Range
+
+```http
+GET /api/payroll-holidays?fechaDesde=2026-01-01&fechaHasta=2026-12-31
+```
+
+### Example Response
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Año Nuevo",
+    "tipo": "OBLIGATORIO_PAGO_DOBLE",
+    "fechaInicio": "2026-01-01",
+    "fechaFin": "2026-01-01",
+    "descripcion": "Feriado nacional de pago obligatorio doble",
+    "fechaCreacion": "2025-12-01T00:00:00.000Z",
+    "fechaModificacion": "2025-12-01T00:00:00.000Z"
+  },
+  {
+    "id": 2,
+    "nombre": "Día del Trabajo",
+    "tipo": "OBLIGATORIO_PAGO_DOBLE",
+    "fechaInicio": "2026-05-01",
+    "fechaFin": "2026-05-01",
+    "descripcion": "Día Internacional del Trabajo",
+    "fechaCreacion": "2025-12-01T00:00:00.000Z",
+    "fechaModificacion": "2025-12-01T00:00:00.000Z"
+  }
+]
+```
+
+## Deleting Holidays
+
+<Warning>
+Unlike other entities, holidays can typically be deleted if they haven't been used in any payroll calculations. However, it's recommended to verify that no payrolls reference the holiday before deletion.
+</Warning>
+
+```http
+DELETE /api/payroll-holidays/:id
+```
+
+## Costa Rica 2026 Holiday Calendar
+
+Here's a reference of official Costa Rican holidays for 2026:
+
+| Date | Holiday | Type |
+|------|---------|------|
+| January 1 | Año Nuevo | OBLIGATORIO_PAGO_DOBLE |
+| April 9-10 | Semana Santa (Jueves y Viernes Santo) | NO_OBLIGATORIO |
+| April 11 | Día de Juan Santamaría | OBLIGATORIO_PAGO_DOBLE |
+| May 1 | Día del Trabajo | OBLIGATORIO_PAGO_DOBLE |
+| July 25 | Anexión del Partido de Nicoya | OBLIGATORIO_PAGO_DOBLE |
+| August 2 | Día de la Virgen de los Ángeles | OBLIGATORIO_PAGO_DOBLE |
+| August 15 | Día de la Madre | OBLIGATORIO_PAGO_DOBLE |
+| September 15 | Día de la Independencia | OBLIGATORIO_PAGO_DOBLE |
+| October 12 | Día de las Culturas | MOVIBLE |
+| December 25 | Navidad | OBLIGATORIO_PAGO_DOBLE |
+
+## Bulk Import Example
+
+Here's a script example for importing all Costa Rican 2026 holidays:
+
+```javascript
+const holidays2026 = [
+  {
+    nombre: "Año Nuevo",
+    tipo: "OBLIGATORIO_PAGO_DOBLE",
+    fechaInicio: "2026-01-01",
+    fechaFin: "2026-01-01",
+    descripcion: "Año Nuevo - Feriado nacional"
+  },
+  {
+    nombre: "Día de Juan Santamaría",
+    tipo: "OBLIGATORIO_PAGO_DOBLE",
+    fechaInicio: "2026-04-11",
+    fechaFin: "2026-04-11",
+    descripcion: "Batalla de Rivas - Héroe nacional"
+  },
+  {
+    nombre: "Día del Trabajo",
+    tipo: "OBLIGATORIO_PAGO_DOBLE",
+    fechaInicio: "2026-05-01",
+    fechaFin: "2026-05-01",
+    descripcion: "Día Internacional del Trabajo"
+  },
+  {
+    nombre: "Anexión del Partido de Nicoya",
+    tipo: "OBLIGATORIO_PAGO_DOBLE",
+    fechaInicio: "2026-07-25",
+    fechaFin: "2026-07-25",
+    descripcion: "Anexión de Guanacaste a Costa Rica"
+  },
+  {
+    nombre: "Virgen de los Ángeles",
+    tipo: "OBLIGATORIO_PAGO_DOBLE",
+    fechaInicio: "2026-08-02",
+    fechaFin: "2026-08-02",
+    descripcion: "Patrona de Costa Rica"
+  },
+  {
+    nombre: "Día de la Madre",
+    tipo: "OBLIGATORIO_PAGO_DOBLE",
+    fechaInicio: "2026-08-15",
+    fechaFin: "2026-08-15",
+    descripcion: "Asunción de María - Día de la Madre"
+  },
+  {
+    nombre: "Día de la Independencia",
+    tipo: "OBLIGATORIO_PAGO_DOBLE",
+    fechaInicio: "2026-09-15",
+    fechaFin: "2026-09-15",
+    descripcion: "Independencia de Centroamérica"
+  },
+  {
+    nombre: "Día de las Culturas",
+    tipo: "MOVIBLE",
+    fechaInicio: "2026-10-12",
+    fechaFin: "2026-10-12",
+    descripcion: "Encuentro de Culturas (antes Día de la Raza)"
+  },
+  {
+    nombre: "Navidad",
+    tipo: "OBLIGATORIO_PAGO_DOBLE",
+    fechaInicio: "2026-12-25",
+    fechaFin: "2026-12-25",
+    descripcion: "Navidad - Feriado nacional"
+  },
+  {
+    nombre: "Semana Santa",
+    tipo: "NO_OBLIGATORIO",
+    fechaInicio: "2026-04-09",
+    fechaFin: "2026-04-10",
+    descripcion: "Jueves y Viernes Santo"
+  }
+];
+
+// Import all holidays
+for (const holiday of holidays2026) {
+  await fetch('/api/payroll-holidays', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(holiday)
+  });
+}
+```
+
+## Impact on Payroll Processing
+
+During payroll processing, the holiday calendar is used to:
+
+<Steps>
+  <Step title="Identify Working Days">
+    Calculate actual working days vs. paid days in the payroll period
+  </Step>
+  
+  <Step title="Apply Premium Pay">
+    If an employee worked on a holiday, apply the appropriate premium based on holiday type
+  </Step>
+  
+  <Step title="Overtime Calculation">
+    Holidays affect weekly overtime calculations (e.g., working 8 hours on a holiday may count as 16 hours toward overtime threshold)
+  </Step>
+  
+  <Step title="Prorated Calculations">
+    Adjust prorated amounts for employees who joined/left mid-period
+  </Step>
+</Steps>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Import Early" icon="clock">
+    Import the entire year's holidays at the beginning of the year (or even in December of the previous year). This prevents last-minute issues during payroll processing.
+  </Accordion>
+  
+  <Accordion title="Verify Types" icon="check-double">
+    Double-check that each holiday has the correct type (`OBLIGATORIO_PAGO_DOBLE`, etc.). Incorrect types can result in wrong pay calculations and legal non-compliance.
+  </Accordion>
+  
+  <Accordion title="Update for Movable Holidays" icon="arrows-rotate">
+    For movable holidays, update the actual observed date once the government publishes the official calendar (usually announced in advance).
+  </Accordion>
+  
+  <Accordion title="Regional Holidays" icon="map-location-dot">
+    If your company operates in multiple cantons or provinces, create separate holiday records for regional holidays (e.g., local patron saint days).
+  </Accordion>
+  
+  <Accordion title="Annual Review" icon="calendar-check">
+    At the end of each year:
+    - Review the upcoming year's official holiday calendar
+    - Import new holidays
+    - Verify no changes to existing mandatory holidays
+  </Accordion>
+</AccordionGroup>
+
+## Common Questions
+
+<AccordionGroup>
+  <Accordion title="What if a holiday falls on a weekend?" icon="calendar-week">
+    In Costa Rica, if a mandatory holiday falls on a weekend, it is typically **not** moved to a weekday (unlike movable holidays). Employees get their regular day's pay but don't get an extra day off.
+    
+    However, check current labor law and company policy, as this can vary.
+  </Accordion>
+  
+  <Accordion title="Can we have company-specific holidays?" icon="building">
+    Yes! Create holidays with type `OBLIGATORIO_PAGO_SIMPLE` or `NO_OBLIGATORIO` for company-specific days off:
+    - Founder's Day
+    - Company anniversary
+    - Extra days between Christmas and New Year
+  </Accordion>
+  
+  <Accordion title="How do holidays affect part-time employees?" icon="user-clock">
+    Holidays are prorated based on the employee's work schedule. A part-time employee (e.g., 4 hours/day) receives holiday pay proportional to their regular hours.
+  </Accordion>
+  
+  <Accordion title="What about remote work and holidays?" icon="laptop">
+    Holidays apply regardless of work location. If an employee works remotely on a mandatory holiday, they still receive the applicable premium pay.
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Payroll Processing" icon="gears" href="/payroll/processing">
+    See how holidays are used during payroll calculations
+  </Card>
+  <Card title="Personal Actions" icon="user-check" href="/personal-actions">
+    Learn how holiday work is recorded as HR actions
+  </Card>
+</CardGroup>
+
+## External References
+
+<Card title="Costa Rican Labor Code" icon="book" href="https://www.tse.go.cr/pdf/normativa/codigotrabajo.pdf">
+  Official Costa Rican labor law (Spanish)
+</Card>

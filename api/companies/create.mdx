@@ -1,0 +1,227 @@
+---
+title: "Create Company"
+api: "POST /companies"
+description: "Create a new company in the system"
+---
+
+## Authentication
+
+This endpoint requires authentication via Bearer token.
+
+## Authorization
+
+Required permission: `company:create`
+
+## Request Body
+
+<ParamField body="nombre" type="string" required>
+  Company name (max 200 characters)
+</ParamField>
+
+<ParamField body="nombreLegal" type="string" required>
+  Legal company name (max 300 characters)
+</ParamField>
+
+<ParamField body="cedula" type="string" required>
+  Company tax ID/cedula (max 50 characters). Must be unique across all companies.
+</ParamField>
+
+<ParamField body="prefijo" type="string" required>
+  Company prefix (1-10 characters). Must be unique across all companies. Used for identifying company-specific resources.
+</ParamField>
+
+<ParamField body="actividadEconomica" type="string" optional>
+  Economic activity description (max 300 characters)
+</ParamField>
+
+<ParamField body="idExterno" type="string" optional>
+  External system ID (max 100 characters). Must be unique if provided.
+</ParamField>
+
+<ParamField body="direccionExacta" type="string" optional>
+  Exact physical address
+</ParamField>
+
+<ParamField body="telefono" type="string" optional>
+  Phone number (max 30 characters)
+</ParamField>
+
+<ParamField body="email" type="string" optional>
+  Company email address (max 150 characters). Must be a valid email format.
+</ParamField>
+
+<ParamField body="codigoPostal" type="string" optional>
+  Postal code (max 20 characters)
+</ParamField>
+
+## Response
+
+Returns the created company object.
+
+<ResponseField name="id" type="number">
+  Unique identifier for the newly created company
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  Company name
+</ResponseField>
+
+<ResponseField name="nombreLegal" type="string">
+  Legal company name
+</ResponseField>
+
+<ResponseField name="cedula" type="string">
+  Company tax ID/cedula
+</ResponseField>
+
+<ResponseField name="actividadEconomica" type="string" optional>
+  Economic activity description
+</ResponseField>
+
+<ResponseField name="prefijo" type="string">
+  Company prefix
+</ResponseField>
+
+<ResponseField name="idExterno" type="string" optional>
+  External system ID
+</ResponseField>
+
+<ResponseField name="direccionExacta" type="string" optional>
+  Exact physical address
+</ResponseField>
+
+<ResponseField name="telefono" type="string" optional>
+  Phone number
+</ResponseField>
+
+<ResponseField name="email" type="string" optional>
+  Company email address
+</ResponseField>
+
+<ResponseField name="codigoPostal" type="string" optional>
+  Postal code
+</ResponseField>
+
+<ResponseField name="estado" type="number">
+  Company state (1 = active)
+</ResponseField>
+
+<ResponseField name="fechaCreacion" type="string">
+  Creation timestamp (ISO 8601 format)
+</ResponseField>
+
+<ResponseField name="fechaModificacion" type="string">
+  Last modification timestamp (ISO 8601 format)
+</ResponseField>
+
+<ResponseField name="fechaInactivacion" type="string" optional>
+  Inactivation timestamp (null for new companies)
+</ResponseField>
+
+<ResponseField name="creadoPor" type="number">
+  User ID who created the company
+</ResponseField>
+
+<ResponseField name="modificadoPor" type="number">
+  User ID who last modified the company
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.newkipital.com/companies" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Acme Corporation",
+    "nombreLegal": "Acme Corporation S.A.",
+    "cedula": "3-101-123456",
+    "prefijo": "ACME",
+    "actividadEconomica": "Servicios de consultoría",
+    "direccionExacta": "Avenida Central, San José, Costa Rica",
+    "telefono": "+506 2222-3333",
+    "email": "info@acme.com",
+    "codigoPostal": "10101"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.newkipital.com/companies', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    nombre: 'Acme Corporation',
+    nombreLegal: 'Acme Corporation S.A.',
+    cedula: '3-101-123456',
+    prefijo: 'ACME',
+    actividadEconomica: 'Servicios de consultoría',
+    direccionExacta: 'Avenida Central, San José, Costa Rica',
+    telefono: '+506 2222-3333',
+    email: 'info@acme.com',
+    codigoPostal: '10101'
+  })
+});
+
+const company = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 - Created
+{
+  "id": 1,
+  "nombre": "Acme Corporation",
+  "nombreLegal": "Acme Corporation S.A.",
+  "cedula": "3-101-123456",
+  "actividadEconomica": "Servicios de consultoría",
+  "prefijo": "ACME",
+  "idExterno": null,
+  "direccionExacta": "Avenida Central, San José, Costa Rica",
+  "telefono": "+506 2222-3333",
+  "email": "info@acme.com",
+  "codigoPostal": "10101",
+  "estado": 1,
+  "fechaCreacion": "2024-03-04T10:30:00Z",
+  "fechaModificacion": "2024-03-04T10:30:00Z",
+  "fechaInactivacion": null,
+  "creadoPor": 1,
+  "modificadoPor": 1
+}
+```
+
+```json 400 - Bad Request
+{
+  "statusCode": 400,
+  "message": [
+    "nombre must be shorter than or equal to 200 characters",
+    "cedula should not be empty"
+  ],
+  "error": "Bad Request"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+```json 403 - Forbidden
+{
+  "statusCode": 403,
+  "message": "Forbidden resource",
+  "error": "Insufficient permissions"
+}
+```
+
+```json 409 - Conflict
+{
+  "statusCode": 409,
+  "message": "Company with cedula '3-101-123456' already exists",
+  "error": "Conflict"
+}
+```
+</ResponseExample>

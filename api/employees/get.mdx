@@ -1,0 +1,491 @@
+---
+title: 'Get Employee'
+api: 'GET /employees/:id'
+---
+
+Retrieve detailed information about a specific employee by their ID.
+
+## Authentication
+
+Requires permission: `employee:view`
+
+## Path Parameters
+
+<ParamField path="id" type="number" required>
+  Employee ID to retrieve.
+</ParamField>
+
+## Response
+
+Returns a complete employee object with all fields and related entities.
+
+<ResponseField name="id" type="number">
+  Unique employee identifier.
+</ResponseField>
+
+<ResponseField name="idEmpresa" type="number">
+  Company ID the employee belongs to.
+</ResponseField>
+
+<ResponseField name="codigo" type="string">
+  Employee code (up to 45 characters).
+</ResponseField>
+
+<ResponseField name="cedula" type="string">
+  Employee national ID (encrypted, up to 30 characters).
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  First name (encrypted, up to 100 characters).
+</ResponseField>
+
+<ResponseField name="apellido1" type="string">
+  First last name (encrypted, up to 100 characters).
+</ResponseField>
+
+<ResponseField name="apellido2" type="string" optional>
+  Second last name (encrypted, up to 100 characters).
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  Employee email address (encrypted, up to 150 characters).
+</ResponseField>
+
+<ResponseField name="genero" type="string" optional>
+  Gender. Values: `Masculino`, `Femenino`, `Otro`.
+</ResponseField>
+
+<ResponseField name="estadoCivil" type="string" optional>
+  Marital status. Values: `Soltero`, `Casado`, `Divorciado`, `Viudo`, `Unión Libre`.
+</ResponseField>
+
+<ResponseField name="cantidadHijos" type="number" default={0}>
+  Number of children.
+</ResponseField>
+
+<ResponseField name="telefono" type="string" optional>
+  Phone number (encrypted, up to 30 characters).
+</ResponseField>
+
+<ResponseField name="direccion" type="string" optional>
+  Home address (encrypted).
+</ResponseField>
+
+<ResponseField name="idDepartamento" type="number" optional>
+  Department ID.
+</ResponseField>
+
+<ResponseField name="departamento" type="object" optional>
+  Department details.
+  
+  <Expandable title="Department Object">
+    <ResponseField name="id" type="number">
+      Department ID.
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      Department name.
+    </ResponseField>
+    
+    <ResponseField name="idExterno" type="string" optional>
+      External department ID (for integrations).
+    </ResponseField>
+    
+    <ResponseField name="estado" type="number">
+      Department status. `1` for active, `0` for inactive.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="idPuesto" type="number" optional>
+  Position/job title ID.
+</ResponseField>
+
+<ResponseField name="puesto" type="object" optional>
+  Position details.
+  
+  <Expandable title="Position Object">
+    <ResponseField name="id" type="number">
+      Position ID.
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      Position name.
+    </ResponseField>
+    
+    <ResponseField name="descripcion" type="string" optional>
+      Position description.
+    </ResponseField>
+    
+    <ResponseField name="estado" type="number">
+      Position status. `1` for active, `0` for inactive.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="idSupervisor" type="number" optional>
+  Supervisor employee ID.
+</ResponseField>
+
+<ResponseField name="supervisor" type="object" optional>
+  Supervisor details (simplified employee object).
+  
+  <Expandable title="Supervisor Object">
+    <ResponseField name="id" type="number">
+      Supervisor's employee ID.
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      Supervisor's first name.
+    </ResponseField>
+    
+    <ResponseField name="apellido1" type="string">
+      Supervisor's first last name.
+    </ResponseField>
+    
+    <ResponseField name="apellido2" type="string" optional>
+      Supervisor's second last name.
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      Supervisor's email.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="fechaIngreso" type="string">
+  Hire date in ISO 8601 format (YYYY-MM-DD).
+</ResponseField>
+
+<ResponseField name="fechaSalida" type="string" optional>
+  Termination date in ISO 8601 format (YYYY-MM-DD).
+</ResponseField>
+
+<ResponseField name="motivoSalida" type="string" optional>
+  Reason for termination.
+</ResponseField>
+
+<ResponseField name="tipoContrato" type="string" optional>
+  Contract type. Values: `Indefinido`, `Plazo Fijo`, `Por Servicios Profesionales`.
+</ResponseField>
+
+<ResponseField name="jornada" type="string" optional>
+  Work schedule. Values: `Tiempo Completo`, `Medio Tiempo`, `Por Horas`.
+</ResponseField>
+
+<ResponseField name="idPeriodoPago" type="number" optional>
+  Pay period ID.
+</ResponseField>
+
+<ResponseField name="periodoPago" type="object" optional>
+  Pay period details.
+  
+  <Expandable title="Pay Period Object">
+    <ResponseField name="id" type="number">
+      Pay period ID.
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      Pay period name (e.g., "Quincenal", "Mensual").
+    </ResponseField>
+    
+    <ResponseField name="dias" type="number">
+      Number of days in the pay period.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="salarioBase" type="string" optional>
+  Base salary (encrypted).
+</ResponseField>
+
+<ResponseField name="monedaSalario" type="string" default="CRC">
+  Salary currency. Values: `CRC`, `USD`.
+</ResponseField>
+
+<ResponseField name="numeroCcss" type="string" optional>
+  Social security number (encrypted, 4-30 characters).
+</ResponseField>
+
+<ResponseField name="cuentaBanco" type="string" optional>
+  Bank account number (encrypted, up to 50 characters).
+</ResponseField>
+
+<ResponseField name="vacacionesAcumuladas" type="string" optional>
+  Accumulated vacation days (encrypted).
+</ResponseField>
+
+<ResponseField name="cesantiaAcumulada" type="string" optional>
+  Accumulated severance (encrypted).
+</ResponseField>
+
+<ResponseField name="idUsuario" type="number" optional>
+  Associated user ID for digital access.
+</ResponseField>
+
+<ResponseField name="estado" type="number" default={1}>
+  Employee status. `1` for active, `0` for inactive.
+</ResponseField>
+
+<ResponseField name="fechaCreacion" type="string">
+  Creation timestamp in ISO 8601 format.
+</ResponseField>
+
+<ResponseField name="fechaModificacion" type="string">
+  Last modification timestamp in ISO 8601 format.
+</ResponseField>
+
+<ResponseField name="creadoPor" type="number" optional>
+  User ID who created the employee.
+</ResponseField>
+
+<ResponseField name="modificadoPor" type="number" optional>
+  User ID who last modified the employee.
+</ResponseField>
+
+<ResponseField name="datosEncriptados" type="number" default={0}>
+  Encryption flag. `1` if data is encrypted, `0` otherwise.
+</ResponseField>
+
+<ResponseField name="versionEncriptacion" type="string" optional>
+  Encryption version used (e.g., "v1").
+</ResponseField>
+
+<ResponseField name="fechaEncriptacion" type="string" optional>
+  Timestamp when data was encrypted in ISO 8601 format.
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X GET "https://api.newkipital.com/employees/1" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Example Response
+
+```json
+{
+  "id": 1,
+  "idEmpresa": 1,
+  "codigo": "EMP-001",
+  "cedula": "1-2345-6789",
+  "nombre": "Juan",
+  "apellido1": "Pérez",
+  "apellido2": "Gómez",
+  "email": "juan.perez@company.com",
+  "genero": "Masculino",
+  "estadoCivil": "Casado",
+  "cantidadHijos": 2,
+  "telefono": "8888-8888",
+  "direccion": "San José, Costa Rica",
+  "idDepartamento": 1,
+  "departamento": {
+    "id": 1,
+    "nombre": "Tecnología",
+    "idExterno": "TECH-01",
+    "estado": 1
+  },
+  "idPuesto": 5,
+  "puesto": {
+    "id": 5,
+    "nombre": "Desarrollador Senior",
+    "descripcion": "Desarrollador de software con más de 5 años de experiencia",
+    "estado": 1
+  },
+  "idSupervisor": 10,
+  "supervisor": {
+    "id": 10,
+    "nombre": "María",
+    "apellido1": "González",
+    "apellido2": "López",
+    "email": "maria.gonzalez@company.com"
+  },
+  "fechaIngreso": "2020-01-15",
+  "fechaSalida": null,
+  "motivoSalida": null,
+  "tipoContrato": "Indefinido",
+  "jornada": "Tiempo Completo",
+  "idPeriodoPago": 1,
+  "periodoPago": {
+    "id": 1,
+    "nombre": "Quincenal",
+    "dias": 15
+  },
+  "salarioBase": "2500000",
+  "monedaSalario": "CRC",
+  "numeroCcss": "12345678901",
+  "cuentaBanco": "CR12345678901234567890",
+  "vacacionesAcumuladas": "15",
+  "cesantiaAcumulada": "500000",
+  "idUsuario": 42,
+  "estado": 1,
+  "fechaCreacion": "2020-01-10T10:00:00Z",
+  "fechaModificacion": "2026-03-01T15:30:00Z",
+  "creadoPor": 1,
+  "modificadoPor": 5,
+  "datosEncriptados": 1,
+  "versionEncriptacion": "v1",
+  "fechaEncriptacion": "2020-01-10T10:05:00Z"
+}
+```
+
+## Additional Operations
+
+### Get Supervisors
+
+```http
+GET /employees/supervisors
+```
+
+Get a list of all employees who can be assigned as supervisors.
+
+**Authentication**: Requires permission `employee:view`
+
+**Response**: Array of simplified employee objects suitable for supervisor selection dropdowns.
+
+**Example Request**:
+```bash
+curl -X GET "https://api.newkipital.com/employees/supervisors" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Example Response**:
+```json
+[
+  {
+    "id": 10,
+    "nombre": "María",
+    "apellido1": "González",
+    "apellido2": "López",
+    "codigo": "EMP-010",
+    "email": "maria.gonzalez@company.com",
+    "puesto": {
+      "nombre": "Gerente de Tecnología"
+    }
+  },
+  {
+    "id": 15,
+    "nombre": "Carlos",
+    "apellido1": "Ramírez",
+    "apellido2": "Mora",
+    "codigo": "EMP-015",
+    "email": "carlos.ramirez@company.com",
+    "puesto": {
+      "nombre": "Jefe de Recursos Humanos"
+    }
+  }
+]
+```
+
+### Get Audit Trail
+
+```http
+GET /employees/:id/audit-trail
+```
+
+Retrieve the audit trail for an employee, showing all changes made to their record.
+
+**Authentication**: Requires permission `config:employees:audit`
+
+**Path Parameters**:
+- `id` (number, required) - Employee ID
+
+**Query Parameters**:
+- `limit` (number, optional) - Maximum number of audit entries to return. Defaults to 100.
+
+**Response**: Array of audit trail entries showing what changed, when, and by whom.
+
+**Example Request**:
+```bash
+curl -X GET "https://api.newkipital.com/employees/1/audit-trail?limit=50" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Example Response**:
+```json
+[
+  {
+    "id": 150,
+    "idEmpleado": 1,
+    "accion": "UPDATE",
+    "campo": "salarioBase",
+    "valorAnterior": "2500000",
+    "valorNuevo": "2800000",
+    "fecha": "2026-03-04T18:30:00Z",
+    "realizadoPor": 5,
+    "usuario": {
+      "id": 5,
+      "nombre": "Ana Rodríguez",
+      "email": "ana.rodriguez@company.com"
+    }
+  },
+  {
+    "id": 149,
+    "idEmpleado": 1,
+    "accion": "UPDATE",
+    "campo": "idPuesto",
+    "valorAnterior": "5",
+    "valorNuevo": "7",
+    "fecha": "2026-03-04T18:30:00Z",
+    "realizadoPor": 5,
+    "usuario": {
+      "id": 5,
+      "nombre": "Ana Rodríguez",
+      "email": "ana.rodriguez@company.com"
+    }
+  },
+  {
+    "id": 1,
+    "idEmpleado": 1,
+    "accion": "CREATE",
+    "campo": null,
+    "valorAnterior": null,
+    "valorNuevo": null,
+    "fecha": "2020-01-10T10:00:00Z",
+    "realizadoPor": 1,
+    "usuario": {
+      "id": 1,
+      "nombre": "Sistema Admin",
+      "email": "admin@company.com"
+    }
+  }
+]
+```
+
+## Error Responses
+
+### Employee Not Found
+```json
+{
+  "statusCode": 404,
+  "message": "Employee not found",
+  "error": "Not Found"
+}
+```
+
+### No Access to Company
+```json
+{
+  "statusCode": 403,
+  "message": "You do not have access to this company's employees",
+  "error": "Forbidden"
+}
+```
+
+### Missing Required Permission
+```json
+{
+  "statusCode": 403,
+  "message": "Insufficient permissions",
+  "error": "Forbidden"
+}
+```
+
+## Notes
+
+- Sensitive fields are decrypted before being returned in the response
+- Related entities (department, position, supervisor, pay period) are populated with their full details
+- The user must have access to the employee's company to retrieve their information
+- Audit trail access requires a special permission (`config:employees:audit`) typically reserved for administrators and HR managers
+- The audit trail tracks all field-level changes including who made the change and when

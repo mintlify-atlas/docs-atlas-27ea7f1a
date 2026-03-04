@@ -1,0 +1,296 @@
+---
+title: Company Management
+description: Configure and manage company profiles with multi-tenant isolation, fiscal information, and organizational settings
+---
+
+## Overview
+
+Company management is the foundation of NewKipital's multi-tenant architecture. Each company operates as an isolated entity with its own employees, payroll data, and access controls. The system ensures complete data separation between companies while providing centralized administration capabilities.
+
+<Info>
+  Companies are the root aggregate in NewKipital. All other entities (users, employees, payroll records) are scoped to a specific company.
+</Info>
+
+## Creating a Company
+
+To create a new company in the system:
+
+<Steps>
+  <Step title="Navigate to Company Management">
+    From the main dashboard, go to **Settings** → **Company Management** → **Add Company**.
+  </Step>
+  
+  <Step title="Enter Basic Information">
+    Provide the essential company details:
+    
+    - **Company Name** — Display name used throughout the system (max 200 characters)
+    - **Legal Name** — Full legal name as registered (max 300 characters)
+    - **Tax ID (Cédula)** — Unique tax identification number (max 50 characters)
+    - **Company Prefix** — Short identifier (1-10 characters, must be unique)
+    
+    <Warning>
+      The company prefix and tax ID must be unique across all companies in the system. These cannot be changed after creation.
+    </Warning>
+  </Step>
+  
+  <Step title="Add Contact Details">
+    Configure company contact information:
+    
+    - Email address
+    - Phone number
+    - Physical address
+    - Postal code
+    
+    All contact fields are optional but recommended for complete records.
+  </Step>
+  
+  <Step title="Configure Business Details">
+    Optionally specify:
+    
+    - **Economic Activity** — Business sector or industry classification
+    - **External ID** — Integration identifier for external systems
+    
+    These fields support integration with external accounting or ERP systems.
+  </Step>
+</Steps>
+
+### Example Company Creation
+
+```json
+{
+  "nombre": "Acme Corporation",
+  "nombreLegal": "Acme Corporation S.A.",
+  "cedula": "3-101-123456",
+  "prefijo": "ACME",
+  "actividadEconomica": "Software Development",
+  "direccionExacta": "San José, Costa Rica",
+  "telefono": "+506-2222-3333",
+  "email": "contact@acme.com",
+  "codigoPostal": "10101"
+}
+```
+
+## Managing Company Information
+
+### Viewing Company Details
+
+Access complete company information including:
+
+- Basic profile information
+- Contact details
+- Active/inactive status
+- Creation and modification timestamps
+- Audit trail of changes
+
+Navigate to **Settings** → **Company Management** and select a company to view its full profile.
+
+### Updating Company Information
+
+Users with `company:edit` permission can modify company details:
+
+1. Select the company from the list
+2. Click **Edit Company**
+3. Modify the editable fields:
+   - Company name
+   - Legal name
+   - Contact information
+   - Economic activity
+   - Address details
+4. Click **Save Changes**
+
+<Note>
+  Tax ID (cédula) and company prefix cannot be modified after creation to maintain data integrity and prevent conflicts.
+</Note>
+
+### Company Logo Management
+
+Customize your company's visual identity by uploading a logo:
+
+<Steps>
+  <Step title="Upload Logo">
+    Click **Upload Logo** and select an image file.
+    
+    **Supported formats:**
+    - PNG
+    - JPEG/JPG
+    - WebP
+    - SVG
+    
+    **Maximum file size:** 5MB
+  </Step>
+  
+  <Step title="Preview and Confirm">
+    Review the logo preview and click **Confirm** to apply it to the company profile.
+  </Step>
+</Steps>
+
+The logo appears in:
+- Company selection screens
+- Payroll reports
+- Employee self-service portals
+- Email notifications
+
+## Company Status Management
+
+NewKipital uses logical deletion to maintain data integrity. Companies are never physically deleted from the database.
+
+### Inactivating a Company
+
+To temporarily disable a company:
+
+1. Navigate to the company profile
+2. Click **Actions** → **Inactivate Company**
+3. Confirm the inactivation
+
+**Effects of inactivation:**
+- Users cannot log in to the company context
+- Payroll processing is blocked
+- Employee records remain accessible in read-only mode
+- All historical data is preserved
+- The inactivation timestamp is recorded
+
+<Warning>
+  Inactivating a company immediately affects all users assigned to it. Ensure you notify relevant stakeholders before proceeding.
+</Warning>
+
+### Reactivating a Company
+
+To restore an inactive company:
+
+1. Filter the company list to show **Inactive Companies**
+2. Select the inactive company
+3. Click **Actions** → **Reactivate Company**
+4. Confirm the reactivation
+
+The company and all its features become immediately available to authorized users.
+
+## Multi-Tenant Data Isolation
+
+NewKipital enforces strict data separation between companies:
+
+- **Database-level isolation** — All queries are automatically scoped to the user's current company context
+- **API enforcement** — Every request validates company access permissions
+- **Audit logging** — All cross-company operations are logged for security review
+
+### Company Context Selection
+
+Users with access to multiple companies can switch contexts:
+
+1. Click the company selector in the navigation bar
+2. Choose the target company from the dropdown
+3. The system refreshes to show data for the selected company
+
+All subsequent operations apply to the selected company until you switch again.
+
+## Permissions and Access Control
+
+Company management operations require specific permissions:
+
+| Action | Required Permission |
+|--------|--------------------|
+| View company list | `company:view` |
+| View company details | `company:view` |
+| Create new company | `company:create` |
+| Update company info | `company:edit` |
+| Upload/change logo | `company:edit` |
+| Inactivate company | `company:inactivate` |
+| Reactivate company | `company:reactivate` |
+| View audit trail | `config:companies:audit` |
+
+<Tip>
+  System administrators typically have all company permissions, while regular users may only have `company:view` to see their assigned company.
+</Tip>
+
+## Audit Trail
+
+Track all changes made to company records:
+
+1. Open the company profile
+2. Navigate to the **Audit Trail** tab
+3. Review the chronological log of changes
+
+Each audit entry includes:
+- Timestamp of the change
+- User who made the change
+- Fields that were modified
+- Before and after values
+- Action type (create, update, inactivate, reactivate)
+
+<Accordion title="Audit trail API example">
+```bash
+GET /api/companies/:id/audit-trail?limit=100
+```
+
+Returns up to 100 most recent audit records for the company.
+</Accordion>
+
+## Integration with External Systems
+
+The **External ID** field enables integration with third-party systems:
+
+- Store identifiers from accounting software
+- Link to CRM or ERP records
+- Maintain references for data synchronization
+- Support multi-system workflows
+
+External IDs must be unique across all companies and are indexed for fast lookup.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Descriptive Prefixes" icon="tag">
+    Choose short, memorable prefixes that clearly identify the company (e.g., "ACME", "TECH", "FIN").
+  </Card>
+  
+  <Card title="Complete All Contact Info" icon="address-card">
+    Provide full contact details for accurate reporting and communication.
+  </Card>
+  
+  <Card title="Regular Audit Reviews" icon="magnifying-glass">
+    Periodically review audit trails to ensure compliance and detect unauthorized changes.
+  </Card>
+  
+  <Card title="Logical Inactivation" icon="circle-pause">
+    Use inactivation instead of deletion to preserve historical records and maintain data integrity.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: Tax ID already exists">
+    The cédula (tax ID) must be unique. Check if another company is already using this identifier. Contact your system administrator if you believe this is an error.
+  </Accordion>
+  
+  <Accordion title="Error: Prefix already exists">
+    Company prefixes must be unique. Choose a different prefix or modify the existing company's prefix first.
+  </Accordion>
+  
+  <Accordion title="Cannot see other companies">
+    Verify your user account has access to multiple companies. Contact your administrator to request additional company assignments.
+  </Accordion>
+  
+  <Accordion title="Logo upload fails">
+    Ensure the image file is under 5MB and in a supported format (PNG, JPEG, WebP, SVG). Try reducing the file size or converting to a different format.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Add Employees" icon="users" href="/features/employees">
+    Start building your workforce by adding employee records to the company.
+  </Card>
+  
+  <Card title="Set Up Departments" icon="sitemap" href="/features/departments">
+    Organize your company structure with departments and reporting hierarchies.
+  </Card>
+  
+  <Card title="Configure Access Control" icon="shield" href="/access-control/overview">
+    Define roles and permissions for users within the company.
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/companies/create">
+    View detailed API documentation for company management endpoints.
+  </Card>
+</CardGroup>

@@ -1,0 +1,291 @@
+---
+title: 'List Employees'
+api: 'GET /employees'
+---
+
+Retrieve a paginated list of employees with advanced filtering and sorting capabilities.
+
+## Authentication
+
+Requires permission: `employee:view`
+
+## Query Parameters
+
+<ParamField query="idEmpresa" type="number">
+  Filter employees by company ID. Returns only employees belonging to the specified company.
+</ParamField>
+
+<ParamField query="idEmpresas" type="string">
+  Filter employees by multiple company IDs. Provide comma-separated company IDs (e.g., "1,2,3").
+</ParamField>
+
+<ParamField query="includeInactive" type="boolean" default={false}>
+  Include inactive employees in the results. By default, only active employees are returned.
+</ParamField>
+
+<ParamField query="page" type="number" default={1}>
+  Page number for pagination.
+</ParamField>
+
+<ParamField query="pageSize" type="number" default={20}>
+  Number of employees per page.
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search employees by name, email, or employee code. Performs a partial match across these fields.
+</ParamField>
+
+<ParamField query="idDepartamento" type="number">
+  Filter employees by department ID.
+</ParamField>
+
+<ParamField query="idPuesto" type="number">
+  Filter employees by position/job title ID.
+</ParamField>
+
+<ParamField query="estado" type="number">
+  Filter by employee status. Use `1` for active employees, `0` for inactive.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Field to sort by. Supported values: `nombre`, `apellido1`, `codigo`, `fechaIngreso`, `email`.
+</ParamField>
+
+<ParamField query="order" type="string" default="ASC">
+  Sort order. Options: `ASC` (ascending) or `DESC` (descending).
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  Array of employee objects.
+  
+  <Expandable title="Employee Object">
+    <ResponseField name="id" type="number">
+      Unique employee identifier.
+    </ResponseField>
+    
+    <ResponseField name="idEmpresa" type="number">
+      Company ID the employee belongs to.
+    </ResponseField>
+    
+    <ResponseField name="codigo" type="string">
+      Employee code (up to 45 characters).
+    </ResponseField>
+    
+    <ResponseField name="cedula" type="string">
+      Employee national ID (encrypted, up to 30 characters).
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      First name (encrypted, up to 100 characters).
+    </ResponseField>
+    
+    <ResponseField name="apellido1" type="string">
+      First last name (encrypted, up to 100 characters).
+    </ResponseField>
+    
+    <ResponseField name="apellido2" type="string" optional>
+      Second last name (encrypted, up to 100 characters).
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      Employee email address (encrypted, up to 150 characters).
+    </ResponseField>
+    
+    <ResponseField name="genero" type="string" optional>
+      Gender. Values: `Masculino`, `Femenino`, `Otro`.
+    </ResponseField>
+    
+    <ResponseField name="estadoCivil" type="string" optional>
+      Marital status. Values: `Soltero`, `Casado`, `Divorciado`, `Viudo`, `Unión Libre`.
+    </ResponseField>
+    
+    <ResponseField name="cantidadHijos" type="number" default={0}>
+      Number of children.
+    </ResponseField>
+    
+    <ResponseField name="telefono" type="string" optional>
+      Phone number (encrypted, up to 30 characters).
+    </ResponseField>
+    
+    <ResponseField name="direccion" type="string" optional>
+      Home address (encrypted).
+    </ResponseField>
+    
+    <ResponseField name="idDepartamento" type="number" optional>
+      Department ID.
+    </ResponseField>
+    
+    <ResponseField name="departamento" type="object" optional>
+      Department object with `id` and `nombre` fields.
+    </ResponseField>
+    
+    <ResponseField name="idPuesto" type="number" optional>
+      Position/job title ID.
+    </ResponseField>
+    
+    <ResponseField name="puesto" type="object" optional>
+      Position object with `id` and `nombre` fields.
+    </ResponseField>
+    
+    <ResponseField name="idSupervisor" type="number" optional>
+      Supervisor employee ID.
+    </ResponseField>
+    
+    <ResponseField name="fechaIngreso" type="string">
+      Hire date in ISO 8601 format (YYYY-MM-DD).
+    </ResponseField>
+    
+    <ResponseField name="fechaSalida" type="string" optional>
+      Termination date in ISO 8601 format (YYYY-MM-DD).
+    </ResponseField>
+    
+    <ResponseField name="motivoSalida" type="string" optional>
+      Reason for termination.
+    </ResponseField>
+    
+    <ResponseField name="tipoContrato" type="string" optional>
+      Contract type. Values: `Indefinido`, `Plazo Fijo`, `Por Servicios Profesionales`.
+    </ResponseField>
+    
+    <ResponseField name="jornada" type="string" optional>
+      Work schedule. Values: `Tiempo Completo`, `Medio Tiempo`, `Por Horas`.
+    </ResponseField>
+    
+    <ResponseField name="idPeriodoPago" type="number" optional>
+      Pay period ID.
+    </ResponseField>
+    
+    <ResponseField name="salarioBase" type="string" optional>
+      Base salary (encrypted).
+    </ResponseField>
+    
+    <ResponseField name="monedaSalario" type="string" default="CRC">
+      Salary currency. Values: `CRC`, `USD`.
+    </ResponseField>
+    
+    <ResponseField name="numeroCcss" type="string" optional>
+      Social security number (encrypted, 4-30 characters).
+    </ResponseField>
+    
+    <ResponseField name="cuentaBanco" type="string" optional>
+      Bank account number (encrypted, up to 50 characters).
+    </ResponseField>
+    
+    <ResponseField name="vacacionesAcumuladas" type="string" optional>
+      Accumulated vacation days (encrypted).
+    </ResponseField>
+    
+    <ResponseField name="cesantiaAcumulada" type="string" optional>
+      Accumulated severance (encrypted).
+    </ResponseField>
+    
+    <ResponseField name="estado" type="number" default={1}>
+      Employee status. `1` for active, `0` for inactive.
+    </ResponseField>
+    
+    <ResponseField name="fechaCreacion" type="string">
+      Creation timestamp in ISO 8601 format.
+    </ResponseField>
+    
+    <ResponseField name="fechaModificacion" type="string">
+      Last modification timestamp in ISO 8601 format.
+    </ResponseField>
+    
+    <ResponseField name="datosEncriptados" type="number" default={0}>
+      Encryption flag. `1` if data is encrypted, `0` otherwise.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  <Expandable title="properties">
+    <ResponseField name="page" type="number">
+      Current page number.
+    </ResponseField>
+    
+    <ResponseField name="pageSize" type="number">
+      Number of items per page.
+    </ResponseField>
+    
+    <ResponseField name="totalItems" type="number">
+      Total number of employees matching the filters.
+    </ResponseField>
+    
+    <ResponseField name="totalPages" type="number">
+      Total number of pages.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X GET "https://api.newkipital.com/employees?page=1&pageSize=20&includeInactive=false&sort=apellido1&order=ASC" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Example Response
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "idEmpresa": 1,
+      "codigo": "EMP-001",
+      "cedula": "1-2345-6789",
+      "nombre": "Juan",
+      "apellido1": "Pérez",
+      "apellido2": "Gómez",
+      "email": "juan.perez@company.com",
+      "genero": "Masculino",
+      "estadoCivil": "Casado",
+      "cantidadHijos": 2,
+      "telefono": "8888-8888",
+      "direccion": "San José, Costa Rica",
+      "idDepartamento": 1,
+      "departamento": {
+        "id": 1,
+        "nombre": "Tecnología"
+      },
+      "idPuesto": 5,
+      "puesto": {
+        "id": 5,
+        "nombre": "Desarrollador Senior"
+      },
+      "idSupervisor": 10,
+      "fechaIngreso": "2020-01-15",
+      "fechaSalida": null,
+      "motivoSalida": null,
+      "tipoContrato": "Indefinido",
+      "jornada": "Tiempo Completo",
+      "idPeriodoPago": 1,
+      "salarioBase": "2500000",
+      "monedaSalario": "CRC",
+      "numeroCcss": "12345678901",
+      "cuentaBanco": "CR12345678901234567890",
+      "vacacionesAcumuladas": "15",
+      "cesantiaAcumulada": "500000",
+      "estado": 1,
+      "fechaCreacion": "2020-01-10T10:00:00Z",
+      "fechaModificacion": "2026-03-01T15:30:00Z",
+      "datosEncriptados": 1
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "totalItems": 1,
+    "totalPages": 1
+  }
+}
+```
+
+## Notes
+
+- Sensitive fields (cedula, nombre, apellido1, apellido2, email, telefono, direccion, salarioBase, numeroCcss, cuentaBanco, vacacionesAcumuladas, cesantiaAcumulada) are encrypted at rest
+- The `datosEncriptados` flag indicates whether the employee's data has been encrypted
+- Use the `idEmpresas` parameter for multi-company filtering when users have access to multiple companies
+- Supervisor relationships are hierarchical - an employee can have one supervisor

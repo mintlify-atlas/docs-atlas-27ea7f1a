@@ -1,0 +1,324 @@
+---
+title: 'Roles'
+description: 'Manage roles and their associated permissions'
+---
+
+## Create Role
+
+<api method="POST" endpoint="/roles" auth="config:roles">
+  Creates a new role in the system. Roles are scoped to specific applications (kpital or timewise) and can be assigned permissions.
+
+  <ParamField body="codigo" type="string" required>
+    Unique role code identifier. Must be 2-50 characters.
+  </ParamField>
+
+  <ParamField body="nombre" type="string" required>
+    Display name for the role. Maximum 100 characters.
+  </ParamField>
+
+  <ParamField body="descripcion" type="string">
+    Optional description of the role's purpose and scope. Maximum 300 characters.
+  </ParamField>
+
+  <ParamField body="appCode" type="string" required>
+    Application the role belongs to. Must be either `kpital` or `timewise`.
+  </ParamField>
+
+  <ResponseField name="id" type="number">
+    Auto-generated unique identifier for the role
+  </ResponseField>
+
+  <ResponseField name="codigo" type="string">
+    The role code as provided
+  </ResponseField>
+
+  <ResponseField name="nombre" type="string">
+    The role display name
+  </ResponseField>
+
+  <ResponseField name="descripcion" type="string | null">
+    Role description if provided
+  </ResponseField>
+
+  <ResponseField name="idApp" type="number | null">
+    ID of the associated application. NULL indicates a MASTER role visible across all apps.
+  </ResponseField>
+
+  <ResponseField name="estado" type="number">
+    Role status: 1 = active, 0 = inactive
+  </ResponseField>
+
+  <ResponseField name="fechaCreacion" type="string">
+    ISO timestamp of when the role was created
+  </ResponseField>
+
+  <ResponseField name="fechaModificacion" type="string">
+    ISO timestamp of last modification
+  </ResponseField>
+
+  <ResponseField name="creadoPor" type="number">
+    User ID who created the role
+  </ResponseField>
+
+  <ResponseField name="modificadoPor" type="number">
+    User ID who last modified the role
+  </ResponseField>
+</api>
+
+## List All Roles
+
+<api method="GET" endpoint="/roles" auth="config:roles">
+  Retrieves all roles in the system with optional filtering.
+
+  <ParamField query="includeInactive" type="boolean">
+    If true, includes inactive roles in the response. Defaults to false.
+  </ParamField>
+
+  <ResponseField name="roles" type="array">
+    Array of role objects with the following structure:
+
+    <ResponseField name="id" type="number">
+      Role ID
+    </ResponseField>
+
+    <ResponseField name="codigo" type="string">
+      Unique role code
+    </ResponseField>
+
+    <ResponseField name="nombre" type="string">
+      Role display name
+    </ResponseField>
+
+    <ResponseField name="descripcion" type="string | null">
+      Role description
+    </ResponseField>
+
+    <ResponseField name="idApp" type="number | null">
+      Associated application ID (NULL for MASTER roles)
+    </ResponseField>
+
+    <ResponseField name="estado" type="number">
+      1 = active, 0 = inactive
+    </ResponseField>
+  </ResponseField>
+</api>
+
+## Get Role by ID
+
+<api method="GET" endpoint="/roles/:id" auth="config:roles">
+  Retrieves a specific role by its ID.
+
+  <ParamField path="id" type="number" required>
+    The unique identifier of the role
+  </ParamField>
+
+  <ResponseField name="id" type="number">
+    Role ID
+  </ResponseField>
+
+  <ResponseField name="codigo" type="string">
+    Unique role code
+  </ResponseField>
+
+  <ResponseField name="nombre" type="string">
+    Role display name
+  </ResponseField>
+
+  <ResponseField name="descripcion" type="string | null">
+    Role description
+  </ResponseField>
+
+  <ResponseField name="idApp" type="number | null">
+    Associated application ID
+  </ResponseField>
+
+  <ResponseField name="estado" type="number">
+    Role status
+  </ResponseField>
+
+  <ResponseField name="fechaCreacion" type="string">
+    Creation timestamp
+  </ResponseField>
+
+  <ResponseField name="fechaModificacion" type="string">
+    Last modification timestamp
+  </ResponseField>
+</api>
+
+## Update Role Metadata
+
+<api method="PUT" endpoint="/roles/:id" auth="config:roles">
+  Updates the name and/or description of an existing role.
+
+  <ParamField path="id" type="number" required>
+    The ID of the role to update
+  </ParamField>
+
+  <ParamField body="nombre" type="string">
+    New display name. Must be 2-100 characters.
+  </ParamField>
+
+  <ParamField body="descripcion" type="string">
+    New description. Maximum 300 characters.
+  </ParamField>
+
+  <ResponseField name="id" type="number">
+    Role ID
+  </ResponseField>
+
+  <ResponseField name="nombre" type="string">
+    Updated role name
+  </ResponseField>
+
+  <ResponseField name="descripcion" type="string | null">
+    Updated role description
+  </ResponseField>
+
+  <ResponseField name="fechaModificacion" type="string">
+    Timestamp of this update
+  </ResponseField>
+</api>
+
+## Inactivate Role
+
+<api method="PATCH" endpoint="/roles/:id/inactivate" auth="config:roles">
+  Marks a role as inactive without deleting it. Inactive roles cannot be assigned to users.
+
+  <ParamField path="id" type="number" required>
+    The ID of the role to inactivate
+  </ParamField>
+
+  <ResponseField name="id" type="number">
+    Role ID
+  </ResponseField>
+
+  <ResponseField name="estado" type="number">
+    Role status (will be 0 for inactive)
+  </ResponseField>
+
+  <ResponseField name="fechaModificacion" type="string">
+    Timestamp of inactivation
+  </ResponseField>
+</api>
+
+## Reactivate Role
+
+<api method="PATCH" endpoint="/roles/:id/reactivate" auth="config:roles">
+  Reactivates a previously inactivated role.
+
+  <ParamField path="id" type="number" required>
+    The ID of the role to reactivate
+  </ParamField>
+
+  <ResponseField name="id" type="number">
+    Role ID
+  </ResponseField>
+
+  <ResponseField name="estado" type="number">
+    Role status (will be 1 for active)
+  </ResponseField>
+
+  <ResponseField name="fechaModificacion" type="string">
+    Timestamp of reactivation
+  </ResponseField>
+</api>
+
+## Assign Permission to Role
+
+<api method="POST" endpoint="/roles/:id/permissions" auth="config:permissions">
+  Assigns a single permission to a role.
+
+  <ParamField path="id" type="number" required>
+    The ID of the role
+  </ParamField>
+
+  <ParamField body="idPermiso" type="number" required>
+    The ID of the permission to assign
+  </ParamField>
+
+  <ResponseField name="success" type="boolean">
+    Indicates whether the assignment was successful
+  </ResponseField>
+
+  <ResponseField name="roleId" type="number">
+    The role ID
+  </ResponseField>
+
+  <ResponseField name="permissionId" type="number">
+    The permission ID that was assigned
+  </ResponseField>
+</api>
+
+## Remove Permission from Role
+
+<api method="DELETE" endpoint="/roles/:idRol/permissions/:idPermiso" auth="config:permissions">
+  Removes a specific permission from a role.
+
+  <ParamField path="idRol" type="number" required>
+    The ID of the role
+  </ParamField>
+
+  <ParamField path="idPermiso" type="number" required>
+    The ID of the permission to remove
+  </ParamField>
+
+  <ResponseField name="success" type="boolean">
+    Indicates whether the removal was successful
+  </ResponseField>
+</api>
+
+## Get Role Permissions
+
+<api method="GET" endpoint="/roles/:id/permissions" auth="config:permissions">
+  Retrieves all permissions assigned to a specific role.
+
+  <ParamField path="id" type="number" required>
+    The ID of the role
+  </ParamField>
+
+  <ResponseField name="permissions" type="array">
+    Array of permission objects assigned to this role
+
+    <ResponseField name="id" type="number">
+      Permission ID
+    </ResponseField>
+
+    <ResponseField name="codigo" type="string">
+      Permission code (e.g., "employees:list", "payroll:approve")
+    </ResponseField>
+
+    <ResponseField name="nombre" type="string">
+      Permission display name
+    </ResponseField>
+
+    <ResponseField name="modulo" type="string">
+      Module the permission belongs to
+    </ResponseField>
+  </ResponseField>
+</api>
+
+## Replace Role Permissions
+
+<api method="PUT" endpoint="/roles/:id/permissions" auth="config:roles">
+  Replaces all permissions for a role with a new set. This operation removes all existing permissions and assigns the new ones.
+
+  <ParamField path="id" type="number" required>
+    The ID of the role
+  </ParamField>
+
+  <ParamField body="permissions" type="array" required>
+    Array of permission codes to assign. Maximum 500 items. Each code must follow the format `module:action[:subaction]` in lowercase (e.g., "employees:list", "payroll:approve:all").
+  </ParamField>
+
+  <ResponseField name="roleId" type="number">
+    The role ID
+  </ResponseField>
+
+  <ResponseField name="assigned" type="array">
+    Array of permission codes that were successfully assigned
+  </ResponseField>
+
+  <ResponseField name="removed" type="array">
+    Array of permission codes that were removed
+  </ResponseField>
+</api>

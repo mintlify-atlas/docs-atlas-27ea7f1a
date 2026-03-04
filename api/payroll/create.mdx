@@ -1,0 +1,202 @@
+---
+title: "Create Payroll"
+api: "POST /payroll"
+description: "Create a new payroll calendar entry for a company and pay period"
+---
+
+## Authorization
+
+Requires `payroll:create` permission.
+
+## Request Body
+
+<ParamField body="idEmpresa" type="number" required>
+  Company ID for this payroll.
+</ParamField>
+
+<ParamField body="idPeriodoPago" type="number" required>
+  Pay period ID reference.
+</ParamField>
+
+<ParamField body="idTipoPlanilla" type="number" optional>
+  Payroll type ID. If not provided, will be inferred from `tipoPlanilla`.
+</ParamField>
+
+<ParamField body="nombrePlanilla" type="string" optional>
+  Custom name for the payroll calendar. Maximum 150 characters.
+</ParamField>
+
+<ParamField body="tipoPlanilla" type="string" optional>
+  Type of payroll. Maximum 30 characters. Valid values:
+  - `Regular` - Standard payroll (default)
+  - `Aguinaldo` - Year-end bonus
+  - `Liquidacion` - Severance
+  - `Extraordinaria` - Special payroll
+</ParamField>
+
+<ParamField body="periodoInicio" type="string" required>
+  Start date of the work period. ISO 8601 date string (YYYY-MM-DD).
+</ParamField>
+
+<ParamField body="periodoFin" type="string" required>
+  End date of the work period. ISO 8601 date string (YYYY-MM-DD). Must be after `periodoInicio`.
+</ParamField>
+
+<ParamField body="fechaCorte" type="string" optional>
+  Cut-off date for including transactions and changes. ISO 8601 date string (YYYY-MM-DD). Defaults to `periodoFin` if not provided.
+</ParamField>
+
+<ParamField body="fechaInicioPago" type="string" required>
+  Start date of the payment window. ISO 8601 date string (YYYY-MM-DD).
+</ParamField>
+
+<ParamField body="fechaFinPago" type="string" required>
+  End date of the payment window. ISO 8601 date string (YYYY-MM-DD). Must be after `fechaInicioPago`.
+</ParamField>
+
+<ParamField body="fechaPagoProgramada" type="string" optional>
+  Scheduled payment date. ISO 8601 date string (YYYY-MM-DD). Defaults to `fechaFinPago` if not provided.
+</ParamField>
+
+<ParamField body="moneda" type="string" optional>
+  Currency for the payroll. Either `CRC` (Costa Rican Colón) or `USD` (US Dollar). Defaults to `CRC`.
+</ParamField>
+
+<ParamField body="descripcionEvento" type="string" optional>
+  Description of the event for calendar display purposes.
+</ParamField>
+
+<ParamField body="etiquetaColor" type="string" optional>
+  Color label for UI display. Maximum 20 characters.
+</ParamField>
+
+## Response
+
+Returns the created payroll calendar object with all fields populated.
+
+<ResponseField name="id" type="number" required>
+  Unique identifier for the newly created payroll.
+</ResponseField>
+
+<ResponseField name="estado" type="number" required>
+  Initial state will be `1` (ABIERTA - Open).
+</ResponseField>
+
+<ResponseField name="versionLock" type="number" required>
+  Initial version will be `0`.
+</ResponseField>
+
+<ResponseField name="slotKey" type="string" required>
+  Automatically generated unique slot key for period management.
+</ResponseField>
+
+<ResponseField name="isActiveSlot" type="number" required>
+  Will be set to `1` (active) for the new payroll.
+</ResponseField>
+
+<ResponseField name="requiresRecalculation" type="number" required>
+  Initial value will be `0` (no recalculation needed).
+</ResponseField>
+
+<ResponseField name="fechaCreacion" type="string" required>
+  Timestamp when the payroll was created.
+</ResponseField>
+
+<ResponseField name="creadoPor" type="number">
+  User ID of the creator.
+</ResponseField>
+
+All other fields from the request will be included in the response.
+
+## Validation Rules
+
+- `periodoFin` must be after `periodoInicio`
+- `fechaFinPago` must be after `fechaInicioPago`
+- Only one operational payroll (ABIERTA, EN_PROCESO, or VERIFICADA) can exist for the same slot (company, period dates, type, and currency)
+- User must have access to the specified company
+
+## Example Request
+
+```bash
+curl -X POST "https://api.newkipital.com/payroll" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idEmpresa": 123,
+    "idPeriodoPago": 78,
+    "nombrePlanilla": "Quincena 1 - Marzo 2026",
+    "tipoPlanilla": "Regular",
+    "periodoInicio": "2026-03-01",
+    "periodoFin": "2026-03-15",
+    "fechaCorte": "2026-03-15",
+    "fechaInicioPago": "2026-03-16",
+    "fechaFinPago": "2026-03-20",
+    "fechaPagoProgramada": "2026-03-18",
+    "moneda": "CRC",
+    "descripcionEvento": "Primera quincena de marzo"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "id": 456,
+  "idEmpresa": 123,
+  "idPeriodoPago": 78,
+  "idTipoPlanilla": 1,
+  "nombrePlanilla": "Quincena 1 - Marzo 2026",
+  "tipoPlanilla": "Regular",
+  "fechaInicioPeriodo": "2026-03-01",
+  "fechaFinPeriodo": "2026-03-15",
+  "fechaCorte": "2026-03-15",
+  "fechaInicioPago": "2026-03-16",
+  "fechaFinPago": "2026-03-20",
+  "fechaPagoProgramada": "2026-03-18",
+  "moneda": "CRC",
+  "estado": 1,
+  "esInactivo": 0,
+  "descripcionEvento": "Primera quincena de marzo",
+  "versionLock": 0,
+  "requiresRecalculation": 0,
+  "slotKey": "123_2026-03-01_2026-03-15_1_CRC",
+  "isActiveSlot": 1,
+  "fechaCreacion": "2026-02-28T10:00:00Z",
+  "fechaModificacion": "2026-02-28T10:00:00Z",
+  "creadoPor": 789
+}
+```
+
+## Error Responses
+
+### 409 Conflict
+
+Returned when an operational payroll already exists for the same slot:
+
+```json
+{
+  "statusCode": 409,
+  "message": "Ya existe una planilla operativa para este periodo, empresa, moneda y tipo",
+  "error": "Conflict"
+}
+```
+
+### 400 Bad Request
+
+Returned when date validation fails:
+
+```json
+{
+  "statusCode": 400,
+  "message": "periodoFin must be after periodoInicio",
+  "error": "Bad Request"
+}
+```
+
+## Notes
+
+- New payrolls are created in the ABIERTA (Open) state
+- The work period (periodoInicio to periodoFin) represents when employees worked
+- The payment window (fechaInicioPago to fechaFinPago) represents when payments will be made
+- The slot key system prevents duplicate active payrolls for the same company, period, type, and currency
+- A domain event is emitted after successful creation for audit and integration purposes

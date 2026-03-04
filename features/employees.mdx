@@ -1,0 +1,536 @@
+---
+title: Employee Management
+description: Complete employee lifecycle management from onboarding to offboarding with comprehensive records, organizational structure, and access control
+---
+
+## Overview
+
+Employee management in NewKipital provides comprehensive tracking of your workforce from hire to retirement. The system maintains detailed personal, contractual, and payroll information while ensuring data security through field-level encryption and role-based access controls.
+
+<Info>
+  Employees are distinct from users in NewKipital. An employee represents a person with a labor contract, while a user represents a digital identity for system access. The system can optionally link these entities.
+</Info>
+
+## Employee Data Structure
+
+NewKipital organizes employee information into logical sections:
+
+### Identity Information
+- Employee code (unique identifier within company)
+- National ID (cédula) with encrypted storage
+- Full name (first name, first surname, optional second surname)
+- Email address (unique across system)
+- Company assignment
+
+### Personal Details
+- Gender (Masculino, Femenino, Otro)
+- Marital status (Soltero, Casado, Divorciado, Viudo, Unión Libre)
+- Number of dependents
+- Phone number
+- Physical address
+
+### Organizational Assignment
+- Department
+- Position/Job title
+- Direct supervisor
+- Reporting hierarchy
+
+### Employment Contract
+- Hire date (required)
+- Exit date (for terminated employees)
+- Contract type (Indefinido, Plazo Fijo, Por Servicios Profesionales)
+- Work schedule (Tiempo Completo, Medio Tiempo, Por Horas)
+- Pay period (weekly, biweekly, monthly)
+
+### Compensation
+- Base salary
+- Currency (CRC or USD)
+- Social security number (CCSS)
+- Bank account for deposits
+
+### Benefits Accruals
+- Accumulated vacation days
+- Severance provision (cesantía)
+- Bonus provisions (aguinaldo)
+
+## Creating an Employee
+
+<Steps>
+  <Step title="Navigate to Employee Management">
+    From the main menu, go to **Employees** → **Add New Employee**.
+  </Step>
+  
+  <Step title="Enter Identity Information">
+    Provide the employee's core identification:
+    
+    - **Employee Code** — Unique identifier (1-45 characters)
+    - **Cédula** — National ID number
+    - **First Name** — Given name (max 100 characters)
+    - **First Surname** — Primary last name (required)
+    - **Second Surname** — Secondary last name (optional)
+    - **Email** — Unique email address for communications
+    
+    <Warning>
+      Email addresses must be unique across the entire system. The cédula is encrypted in the database for security.
+    </Warning>
+  </Step>
+  
+  <Step title="Add Personal Details">
+    Optionally provide additional personal information:
+    
+    - Gender
+    - Marital status
+    - Number of children/dependents
+    - Phone number
+    - Home address
+    
+    This information supports HR reporting and compliance requirements.
+  </Step>
+  
+  <Step title="Assign Organizational Position">
+    Connect the employee to your organizational structure:
+    
+    - **Department** — Select from active departments
+    - **Position** — Choose the job title/role
+    - **Supervisor** — Assign a direct manager (optional)
+    
+    <Tip>
+      Create departments and positions first to streamline employee onboarding.
+    </Tip>
+  </Step>
+  
+  <Step title="Configure Employment Contract">
+    Define the employment terms:
+    
+    - **Hire Date** — Start date of employment (required)
+    - **Contract Type** — Indefinido, Plazo Fijo, or Por Servicios Profesionales
+    - **Work Schedule** — Full-time, part-time, or hourly
+    - **Pay Period** — How often the employee is paid
+    
+    Contract information determines payroll calculations and benefits eligibility.
+  </Step>
+  
+  <Step title="Set Compensation Details">
+    Configure salary and payment information:
+    
+    - **Base Salary** — Monthly or period-based compensation
+    - **Currency** — CRC (Costa Rican Colón) or USD
+    - **CCSS Number** — Social security identification
+    - **Bank Account** — For direct deposit
+    
+    <Note>
+      Salary information is encrypted and only visible to users with `employee:view-sensitive` permission.
+    </Note>
+  </Step>
+  
+  <Step title="Initialize Accruals (Optional)">
+    For employees with prior service, set opening balances:
+    
+    - **Accumulated Vacation Days** — Carried forward from previous period
+    - **Severance Provision** — Existing cesantía balance
+    - **Bonus Provisions** — Aguinaldo accruals
+    
+    Leave these fields empty for new hires starting from zero.
+  </Step>
+  
+  <Step title="Configure System Access (Optional)">
+    Optionally create digital access for the employee:
+    
+    - **Create Timewise Access** — Enable time tracking and self-service
+    - **Create Kpital Access** — Enable full system access
+    - **Assign Role** — Select appropriate permissions
+    - **Initial Password** — Set temporary password (optional)
+    
+    If enabled, the system automatically creates a user account linked to this employee.
+  </Step>
+</Steps>
+
+### Example Employee Creation
+
+```json
+{
+  "idEmpresa": 1,
+  "codigo": "EMP001",
+  "cedula": "1-0800-0555",
+  "nombre": "María",
+  "apellido1": "González",
+  "apellido2": "Pérez",
+  "email": "maria.gonzalez@company.com",
+  "genero": "Femenino",
+  "estadoCivil": "Casado",
+  "cantidadHijos": 2,
+  "telefono": "+506-8888-9999",
+  "direccion": "Heredia, Costa Rica",
+  "idDepartamento": 5,
+  "idPuesto": 12,
+  "idSupervisor": 42,
+  "fechaIngreso": "2026-03-01",
+  "tipoContrato": "Indefinido",
+  "jornada": "Tiempo Completo",
+  "idPeriodoPago": 2,
+  "salarioBase": 850000,
+  "monedaSalario": "CRC",
+  "numeroCcss": "100800555000",
+  "cuentaBanco": "CR12345678901234567890",
+  "crearAccesoTimewise": true,
+  "idRolTimewise": 3
+}
+```
+
+## Managing Employee Records
+
+### Viewing Employee Lists
+
+Access the employee directory from **Employees** → **All Employees**. The list supports:
+
+- **Search** — Find employees by name, email, code, or cédula
+- **Filters** — Narrow by department, position, or status
+- **Pagination** — Navigate large employee lists efficiently
+- **Sorting** — Order by name, hire date, or department
+- **Multi-company view** — See employees across multiple companies (if authorized)
+
+<Accordion title="Advanced filtering options">
+  Apply multiple filters simultaneously:
+  
+  - Company selection
+  - Department filter
+  - Position filter
+  - Active/inactive status
+  - Date range for hire dates
+  
+  Filters persist during your session for consistent viewing.
+</Accordion>
+
+### Viewing Employee Profiles
+
+Click any employee in the list to view their complete profile:
+
+- **Overview Tab** — Core identity and contact information
+- **Employment Tab** — Contract details and organizational assignment
+- **Compensation Tab** — Salary and payment information (requires `employee:view-sensitive`)
+- **Accruals Tab** — Vacation, severance, and bonus balances
+- **History Tab** — Payroll history and personal actions
+- **Documents Tab** — Uploaded files and attachments
+- **Audit Trail Tab** — Change history (requires `config:employees:audit`)
+
+### Updating Employee Information
+
+Users with `employee:edit` permission can modify employee records:
+
+1. Open the employee profile
+2. Click **Edit Employee**
+3. Modify the desired fields
+4. Click **Save Changes**
+
+**Editable fields:**
+- Personal information (name, contact details, demographics)
+- Organizational assignment (department, position, supervisor)
+- Contract terms (type, schedule, pay period)
+- Compensation (salary, bank account, CCSS number)
+- Accrual balances
+
+<Warning>
+  Changes to salary or contract terms may affect payroll calculations. Review carefully before saving.
+</Warning>
+
+## Supervisor Hierarchy
+
+Establish reporting relationships by assigning supervisors:
+
+1. Edit the employee record
+2. In the **Supervisor** field, select from active employees
+3. Save the changes
+
+The supervisor relationship:
+- Appears in organizational charts
+- Determines approval workflows for time-off requests
+- Filters reports and dashboards
+- Controls visibility in self-service portals
+
+<Tip>
+  Use the **Supervisors** endpoint to retrieve only employees eligible to supervise others, simplifying the assignment process.
+</Tip>
+
+## Employee Status Management
+
+### Active Employees
+
+Active employees (estado = 1) are:
+- Included in payroll processing
+- Visible in standard employee lists
+- Eligible for personal actions (time off, bonuses, etc.)
+- Counted in headcount reports
+
+### Inactivating Employees
+
+To temporarily suspend an employee record:
+
+1. Open the employee profile
+2. Click **Actions** → **Inactivate Employee**
+3. Confirm the action
+
+**Effects:**
+- Excluded from payroll processing
+- Hidden from standard lists (visible with filter)
+- Cannot request time off or access self-service
+- Historical data remains intact
+
+### Reactivating Employees
+
+To restore an inactive employee:
+
+1. Filter to show **Inactive Employees**
+2. Select the employee
+3. Click **Actions** → **Reactivate Employee**
+4. Confirm the reactivation
+
+### Employee Termination (Liquidación)
+
+For permanent separation:
+
+1. Open the employee profile
+2. Click **Actions** → **Terminate Employee**
+3. Provide:
+   - **Exit Date** — Last day of employment
+   - **Termination Reason** — Explanation for separation
+4. Confirm the termination
+
+**The system automatically:**
+- Calculates final severance pay
+- Computes unused vacation balance
+- Determines prorated aguinaldo
+- Generates termination report
+- Sets the exit date in the employee record
+- Maintains full historical data
+
+<Warning>
+  Termination cannot be undone. Ensure all information is correct before confirming.
+</Warning>
+
+## Data Security and Encryption
+
+NewKipital protects sensitive employee data through multiple layers:
+
+### Field-Level Encryption
+
+Sensitive fields are encrypted at rest:
+- National ID (cédula)
+- Email address
+- Salary information
+- Bank account numbers
+- Social security numbers
+
+Encryption metadata tracked per employee:
+- `datosEncriptados` — Encryption status flag
+- `versionEncriptacion` — Encryption algorithm version
+- `fechaEncriptacion` — When data was encrypted
+
+### Access Control
+
+View permissions are tiered:
+
+| Information Level | Required Permission |
+|------------------|--------------------|
+| Basic employee data | `employee:view` |
+| Salary and compensation | `employee:view-sensitive` |
+| Edit employee records | `employee:edit` |
+| Create new employees | `employee:create` |
+| Inactivate employees | `employee:inactivate` |
+| Reactivate employees | `employee:reactivate` |
+| View audit trail | `config:employees:audit` |
+
+<Info>
+  Most users have `employee:view` only. HR administrators typically have `employee:view-sensitive` and `employee:edit`.
+</Info>
+
+## Employee Self-Service Access
+
+When creating an employee, optionally enable system access:
+
+### Timewise Access
+
+**Employee time tracking and self-service portal**
+
+- Clock in/out for time tracking
+- Request time off and absences
+- View pay stubs and payment history
+- Update personal contact information
+- Access company policies and documents
+
+### Kpital Access
+
+**Full system access for administrative users**
+
+- All Timewise features
+- Access to company-wide reports
+- Payroll processing (if authorized)
+- Employee management (if authorized)
+- System configuration (if authorized)
+
+Roles determine specific permissions within each access level.
+
+## Catalogs and Reference Data
+
+Employee creation relies on organizational catalogs:
+
+### Departments Catalog
+
+Retrieve active departments:
+```bash
+GET /api/catalogs/departments
+```
+
+Returns list of departments with ID, name, and status.
+
+### Positions Catalog
+
+Retrieve active positions:
+```bash
+GET /api/catalogs/positions
+```
+
+Returns job titles/roles available for assignment.
+
+### Pay Periods Catalog
+
+Retrieve active pay periods:
+```bash
+GET /api/catalogs/pay-periods
+```
+
+Returns payment frequency options (weekly, biweekly, monthly, etc.).
+
+<Tip>
+  Load catalogs once at application startup and cache for performance.
+</Tip>
+
+## Contract Types
+
+NewKipital supports three contract types aligned with Costa Rican labor law:
+
+### Indefinido (Indefinite)
+
+- No specified end date
+- Full benefits and protections
+- Standard severance calculations
+- Most common employment type
+
+### Plazo Fijo (Fixed Term)
+
+- Defined contract duration
+- Automatic expiration on end date
+- Modified severance calculations
+- Renewal process required
+
+### Por Servicios Profesionales (Professional Services)
+
+- Independent contractor arrangement
+- Different tax treatment
+- No traditional benefits
+- Project-based or consultant roles
+
+## Work Schedules
+
+### Tiempo Completo (Full Time)
+
+- Standard 40-48 hours per week
+- Full benefits eligibility
+- Standard vacation accrual
+- Typical for salaried employees
+
+### Medio Tiempo (Part Time)
+
+- Less than full-time hours
+- Prorated benefits
+- Reduced vacation accrual
+- Hourly or salary compensation
+
+### Por Horas (Hourly)
+
+- Variable hours per period
+- Paid by time worked
+- Limited benefits
+- Common for temporary or seasonal work
+
+## Reporting and Analytics
+
+### Headcount Reports
+
+- Total active employees
+- Breakdown by department
+- Breakdown by position
+- Trend analysis over time
+
+### Compensation Analysis
+
+- Salary distribution
+- Cost per department
+- Currency breakdown
+- Budget vs. actual
+
+### Turnover Tracking
+
+- Terminations by period
+- Reasons for separation
+- Average tenure
+- Department retention rates
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Unique Employee Codes" icon="barcode">
+    Use consistent, sequential codes for easy identification and sorting.
+  </Card>
+  
+  <Card title="Complete Profiles" icon="user-check">
+    Fill all available fields for comprehensive HR records and better reporting.
+  </Card>
+  
+  <Card title="Regular Audits" icon="clipboard-check">
+    Review employee data periodically to ensure accuracy and compliance.
+  </Card>
+  
+  <Card title="Structured Hierarchy" icon="sitemap">
+    Maintain clear supervisor relationships for effective workflow approvals.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: Email already exists">
+    Email addresses must be unique. Check if the email is assigned to another employee or user account. Contact support if the employee truly needs this email.
+  </Accordion>
+  
+  <Accordion title="Cannot save salary information">
+    Verify you have `employee:view-sensitive` and `employee:edit` permissions. Salary fields require elevated access.
+  </Accordion>
+  
+  <Accordion title="Supervisor not appearing in dropdown">
+    Ensure the supervisor is an active employee in the same company. Inactive employees cannot supervise others.
+  </Accordion>
+  
+  <Accordion title="User account not created automatically">
+    Verify the `crearAccesoTimewise` or `crearAccesoKpital` flags were set to true during employee creation. Check system logs for workflow errors.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Organize with Departments" icon="building" href="/features/departments">
+    Create departments to structure your organization and group employees.
+  </Card>
+  
+  <Card title="Define Positions" icon="briefcase" href="/features/positions">
+    Set up job titles and roles for employee assignment.
+  </Card>
+  
+  <Card title="Process Payroll" icon="money-bill-wave" href="/payroll/overview">
+    Learn how employee data flows into payroll calculations.
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/employees/create">
+    View detailed API documentation for employee management endpoints.
+  </Card>
+</CardGroup>

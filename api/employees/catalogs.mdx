@@ -1,0 +1,292 @@
+---
+title: 'Employee Catalogs'
+api: 'GET /catalogs'
+---
+
+Catalog endpoints provide dropdown options for employee creation and management. These endpoints return active catalog items for use in UI forms.
+
+## Authentication
+
+All catalog endpoints require permission: `employee:view`
+
+---
+
+## Get Departments
+
+```http
+GET /catalogs/departments
+```
+
+Retrieve all active departments for employee assignment.
+
+### Response
+
+<ResponseField name="data" type="array">
+  Array of department objects.
+  
+  <Expandable title="Department Object">
+    <ResponseField name="id" type="number">
+      Department ID.
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      Department name.
+    </ResponseField>
+    
+    <ResponseField name="estado" type="number">
+      Department status. Always `1` (active) in this endpoint.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET "https://api.newkipital.com/catalogs/departments" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Example Response
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Tecnología",
+    "estado": 1
+  },
+  {
+    "id": 2,
+    "nombre": "Recursos Humanos",
+    "estado": 1
+  },
+  {
+    "id": 3,
+    "nombre": "Finanzas",
+    "estado": 1
+  },
+  {
+    "id": 4,
+    "nombre": "Ventas",
+    "estado": 1
+  },
+  {
+    "id": 5,
+    "nombre": "Operaciones",
+    "estado": 1
+  }
+]
+```
+
+---
+
+## Get Positions
+
+```http
+GET /catalogs/positions
+```
+
+Retrieve all active job positions/titles for employee assignment.
+
+### Response
+
+<ResponseField name="data" type="array">
+  Array of position objects.
+  
+  <Expandable title="Position Object">
+    <ResponseField name="id" type="number">
+      Position ID.
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      Position name.
+    </ResponseField>
+    
+    <ResponseField name="estado" type="number">
+      Position status. Always `1` (active) in this endpoint.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET "https://api.newkipital.com/catalogs/positions" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Example Response
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Gerente General",
+    "estado": 1
+  },
+  {
+    "id": 2,
+    "nombre": "Gerente de Departamento",
+    "estado": 1
+  },
+  {
+    "id": 3,
+    "nombre": "Supervisor",
+    "estado": 1
+  },
+  {
+    "id": 4,
+    "nombre": "Analista",
+    "estado": 1
+  },
+  {
+    "id": 5,
+    "nombre": "Desarrollador Senior",
+    "estado": 1
+  },
+  {
+    "id": 6,
+    "nombre": "Desarrollador",
+    "estado": 1
+  },
+  {
+    "id": 7,
+    "nombre": "Desarrollador Junior",
+    "estado": 1
+  },
+  {
+    "id": 8,
+    "nombre": "Asistente",
+    "estado": 1
+  }
+]
+```
+
+---
+
+## Get Pay Periods
+
+```http
+GET /catalogs/pay-periods
+```
+
+Retrieve all active pay periods for employee salary configuration.
+
+### Response
+
+<ResponseField name="data" type="array">
+  Array of pay period objects.
+  
+  <Expandable title="Pay Period Object">
+    <ResponseField name="id" type="number">
+      Pay period ID.
+    </ResponseField>
+    
+    <ResponseField name="nombre" type="string">
+      Pay period name (e.g., "Semanal", "Quincenal", "Mensual").
+    </ResponseField>
+    
+    <ResponseField name="dias" type="number">
+      Number of days in the pay period.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET "https://api.newkipital.com/catalogs/pay-periods" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Example Response
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Semanal",
+    "dias": 7
+  },
+  {
+    "id": 2,
+    "nombre": "Quincenal",
+    "dias": 15
+  },
+  {
+    "id": 3,
+    "nombre": "Mensual",
+    "dias": 30
+  }
+]
+```
+
+---
+
+## Enumeration Values
+
+The following enum values are also used in employee management and should be hardcoded in your UI forms:
+
+### Gender (genero)
+
+- `Masculino`
+- `Femenino`
+- `Otro`
+
+### Marital Status (estadoCivil)
+
+- `Soltero` - Single
+- `Casado` - Married
+- `Divorciado` - Divorced
+- `Viudo` - Widowed
+- `Unión Libre` - Common-law marriage
+
+### Contract Type (tipoContrato)
+
+- `Indefinido` - Indefinite/Permanent
+- `Plazo Fijo` - Fixed-term
+- `Por Servicios Profesionales` - Professional services
+
+### Work Schedule (jornada)
+
+- `Tiempo Completo` - Full-time
+- `Medio Tiempo` - Part-time
+- `Por Horas` - Hourly
+
+### Salary Currency (monedaSalario)
+
+- `CRC` - Costa Rican Colón
+- `USD` - US Dollar
+
+---
+
+## Error Responses
+
+### Missing Required Permission
+```json
+{
+  "statusCode": 403,
+  "message": "Insufficient permissions",
+  "error": "Forbidden"
+}
+```
+
+### Unauthorized
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized",
+  "error": "Unauthorized"
+}
+```
+
+---
+
+## Notes
+
+- All catalog endpoints return only active items (estado = 1)
+- Results are sorted alphabetically by name (ASC)
+- These endpoints are optimized for UI dropdown population
+- Catalog data is typically cached on the client side as it changes infrequently
+- The `@AllowWithoutCompany()` decorator allows these endpoints to be called even if the user doesn't have a specific company selected in their context
+- For supervisor selection, use the [GET /employees/supervisors](/api/employees/get) endpoint instead

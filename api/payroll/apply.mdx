@@ -1,0 +1,240 @@
+---
+title: "Apply Payroll"
+api: "PATCH /payroll/{id}/apply"
+description: "Apply a verified payroll, making it immutable and finalizing the payroll cycle. Transitions from VERIFICADA to APLICADA state."
+---
+
+## Authorization
+
+Requires `payroll:apply` permission.
+
+## Path Parameters
+
+<ParamField path="id" type="number" required>
+  Unique identifier of the payroll to apply.
+</ParamField>
+
+## Request Body
+
+<ParamField body="version" type="number" optional>
+  Expected version number for optimistic concurrency control. If provided, the apply will only succeed if the current `versionLock` matches this value.
+</ParamField>
+
+## Workflow
+
+The apply operation finalizes the payroll in a transactional manner:
+
+1. **Validates state** - Only VERIFICADA (Verified) payrolls can be applied
+2. **Checks recalculation flag** - Ensures no recalculation is required
+3. **Optimistic lock check** - Validates version if provided
+4. **Atomic state update** - Uses optimistic locking to transition to APLICADA
+5. **Records application time** - Sets `fechaAplicacion` timestamp
+6. **Deactivates slot** - Sets `isActiveSlot` to 0 (no longer operational)
+7. **Increments version** - Updates `versionLock`
+8. **Invalidates personal actions** - Marks applied personal actions as invalidated
+
+## State Transition
+
+<ResponseField name="Before" type="string">
+  `VERIFICADA` (estado = 3)
+</ResponseField>
+
+<ResponseField name="After" type="string">
+  `APLICADA` (estado = 4) - Immutable
+</ResponseField>
+
+## Optimistic Concurrency Control
+
+The `version` parameter enables optimistic locking to prevent concurrent modifications:
+
+```json
+{
+  "version": 2
+}
+```
+
+If the current `versionLock` doesn't match the provided version, the operation fails with a 409 Conflict error. This prevents:
+
+- Applying a payroll that was modified by another user
+- Race conditions in concurrent payroll operations
+- Accidental application of outdated data
+
+## Response
+
+Returns the updated payroll calendar object.
+
+<ResponseField name="id" type="number" required>
+  The payroll identifier.
+</ResponseField>
+
+<ResponseField name="estado" type="number" required>
+  Will be `4` (APLICADA) after successful application.
+</ResponseField>
+
+<ResponseField name="fechaAplicacion" type="string" required>
+  Timestamp when the payroll was applied (ISO 8601 datetime).
+</ResponseField>
+
+<ResponseField name="versionLock" type="number" required>
+  Version number incremented by 1.
+</ResponseField>
+
+<ResponseField name="isActiveSlot" type="number" required>
+  Will be `0` (inactive) - payroll is no longer operational.
+</ResponseField>
+
+<ResponseField name="fechaModificacion" type="string" required>
+  Updated to current timestamp.
+</ResponseField>
+
+<ResponseField name="modificadoPor" type="number">
+  User ID who applied the payroll.
+</ResponseField>
+
+All other payroll calendar fields are included in the response.
+
+## What Happens When Applied
+
+### Immutability
+- The payroll becomes **immutable** - no further modifications allowed
+- Cannot be reopened or changed after application
+- Snapshot data is permanently locked
+
+### Personal Actions
+- Personal actions (salary changes, promotions, etc.) included in this payroll are marked as invalidated
+- This prevents them from being included in future payrolls
+- Audit trail records the invalidation
+
+### Slot Management
+- The payroll's `isActiveSlot` is set to 0
+- Allows a new payroll to be created for the same period/company/type/currency combination
+- Historical payrolls remain accessible for reporting
+
+## Example Request
+
+```bash
+curl -X PATCH "https://api.newkipital.com/payroll/456/apply" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version": 2
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "id": 456,
+  "idEmpresa": 123,
+  "idPeriodoPago": 78,
+  "nombrePlanilla": "Quincena 1 - Marzo 2026",
+  "tipoPlanilla": "Regular",
+  "fechaInicioPeriodo": "2026-03-01",
+  "fechaFinPeriodo": "2026-03-15",
+  "moneda": "CRC",
+  "estado": 4,
+  "esInactivo": 0,
+  "versionLock": 3,
+  "lastSnapshotAt": "2026-03-05T14:30:00Z",
+  "requiresRecalculation": 0,
+  "isActiveSlot": 0,
+  "fechaAplicacion": "2026-03-06T09:15:00Z",
+  "fechaModificacion": "2026-03-06T09:15:00Z",
+  "modificadoPor": 789
+}
+```
+
+## Error Responses
+
+### 400 Bad Request - Wrong State
+
+```json
+{
+  "statusCode": 400,
+  "message": "Solo se puede aplicar una planilla en estado Verificada",
+  "error": "Bad Request"
+}
+```
+
+### 400 Bad Request - Requires Recalculation
+
+```json
+{
+  "statusCode": 400,
+  "message": "La planilla requiere recalculo. Procese nuevamente antes de aplicar.",
+  "error": "Bad Request"
+}
+```
+
+### 409 Conflict - Version Mismatch
+
+```json
+{
+  "statusCode": 409,
+  "message": "La planilla fue modificada por otro proceso. Recargue e intente de nuevo.",
+  "error": "Conflict"
+}
+```
+
+### 409 Conflict - Concurrent Modification
+
+```json
+{
+  "statusCode": 409,
+  "message": "Conflicto de concurrencia al aplicar planilla.",
+  "error": "Conflict"
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "statusCode": 404,
+  "message": "Planilla #456 no encontrada",
+  "error": "Not Found"
+}
+```
+
+## Best Practices
+
+### Always Use Version Control
+
+```javascript
+// Fetch current payroll to get version
+const payroll = await fetch('/payroll/456').then(r => r.json());
+
+// Apply with version check
+await fetch('/payroll/456/apply', {
+  method: 'PATCH',
+  body: JSON.stringify({ version: payroll.versionLock })
+});
+```
+
+### Handle Conflicts Gracefully
+
+```javascript
+try {
+  await applyPayroll(id, version);
+} catch (error) {
+  if (error.statusCode === 409) {
+    // Reload payroll and ask user to review changes
+    const updated = await fetchPayroll(id);
+    if (confirm('Payroll was modified. Review and try again?')) {
+      await applyPayroll(id, updated.versionLock);
+    }
+  }
+}
+```
+
+## Notes
+
+- Application is the **final step** in the payroll workflow
+- Once applied, the payroll **cannot be modified or reopened**
+- The operation uses database-level optimistic locking for safety
+- All changes occur in a transaction - no partial updates
+- A domain event is emitted after successful application
+- Personal actions are automatically invalidated to prevent reuse
+- The `requiresRecalculation` flag must be 0 (false) to apply
+- After application, the slot becomes available for a new payroll period

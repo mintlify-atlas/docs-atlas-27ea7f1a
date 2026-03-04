@@ -1,0 +1,254 @@
+---
+title: 'Payroll Management Overview'
+description: 'Comprehensive payroll processing system with state machine workflow and version control'
+---
+
+## Introduction
+
+The Payroll Management system handles the complete lifecycle of payroll processing in NewKipital. It implements a state machine workflow that ensures data integrity, version control, and audit trails throughout the payroll lifecycle.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="State Machine Workflow" icon="diagram-project">
+    Draft → Verified → Processed → Applied with controlled transitions
+  </Card>
+  <Card title="Version-Controlled Snapshots" icon="camera">
+    Immutable employee and input snapshots for each payroll run
+  </Card>
+  <Card title="Multi-Currency Support" icon="money-bill">
+    Process payroll in CRC (Costa Rican Colón) or USD
+  </Card>
+  <Card title="Audit Trail" icon="clock-rotate-left">
+    Complete history of all changes with user attribution
+  </Card>
+</CardGroup>
+
+## Payroll States
+
+The payroll system uses a strict state machine to ensure data consistency:
+
+```typescript
+export enum EstadoCalendarioNomina {
+  ABIERTA = 1,        // Open - can be edited
+  EN_PROCESO = 2,     // Processing - snapshots being created
+  VERIFICADA = 3,     // Verified - awaiting approval
+  APLICADA = 4,       // Applied - immutable, consumed
+  CONTABILIZADA = 5,  // Accounted - posted to accounting
+  NOTIFICADA = 6,     // Notified - employees notified
+  INACTIVA = 0,       // Inactive - soft deleted
+}
+```
+
+### State Transitions
+
+<Steps>
+  <Step title="Abierta (Open)">
+    Initial state when a payroll is created. Can be edited, updated, or deleted. Ready to be processed.
+  </Step>
+  
+  <Step title="En Proceso (Processing)">
+    System is creating employee snapshots, collecting approved HR actions, and calculating results. Cannot be edited during processing.
+  </Step>
+  
+  <Step title="Verificada (Verified)">
+    Processing complete. Results are ready for review and approval. Can be reopened to Abierta if changes are needed.
+  </Step>
+  
+  <Step title="Aplicada (Applied)">
+    Approved and finalized. All HR actions are marked as consumed. This state is **immutable** - the payroll cannot be modified or reopened.
+  </Step>
+  
+  <Step title="Contabilizada (Accounted)">
+    Posted to accounting system (e.g., NetSuite). Integration complete.
+  </Step>
+  
+  <Step title="Notificada (Notified)">
+    Employees have been notified of their payroll results.
+  </Step>
+</Steps>
+
+## Core Entities
+
+### PayrollCalendar
+
+The main payroll record that defines when and how payroll is processed:
+
+```typescript
+interface PayrollCalendar {
+  id: number;
+  idEmpresa: number;              // Company ID
+  idPeriodoPago: number;          // Pay period frequency
+  nombrePlanilla: string;         // Payroll name
+  tipoPlanilla: TipoPlanilla;     // Type: Regular, Aguinaldo, etc.
+  
+  // Period dates (work period)
+  fechaInicioPeriodo: Date;       // Period start
+  fechaFinPeriodo: Date;          // Period end
+  fechaCorte: Date;               // Cutoff date for HR actions
+  
+  // Payment dates (payment window)
+  fechaInicioPago: Date;          // Payment window start
+  fechaFinPago: Date;             // Payment window end
+  fechaPagoProgramada: Date;      // Scheduled payment date
+  
+  moneda: 'CRC' | 'USD';         // Currency
+  estado: EstadoCalendarioNomina; // State
+  versionLock: number;            // Optimistic locking
+}
+```
+
+<Info>
+**Important Distinction**: The work period (`fechaInicioPeriodo` → `fechaFinPeriodo`) defines what days are being paid for, while the payment window (`fechaInicioPago` → `fechaFinPago`) defines when the payment will be made.
+</Info>
+
+### PayrollEmployeeSnapshot
+
+Immutable snapshot of employee data at the time of payroll processing:
+
+```typescript
+interface PayrollEmployeeSnapshot {
+  id: number;
+  idNomina: number;        // Payroll ID
+  idEmpleado: number;      // Employee ID
+  salarioBase: string;     // Base salary at snapshot time
+  jornada: string;         // Work schedule
+  moneda: 'CRC' | 'USD';  // Salary currency
+  cuentaBanco: string;     // Bank account
+}
+```
+
+### PayrollInputSnapshot
+
+Captures all inputs (HR actions, movements) that contribute to the payroll:
+
+```typescript
+export enum PayrollInputSourceType {
+  HR_ACTION = 'HR_ACTION',  // From personal actions
+  TIME = 'TIME',            // From time tracking
+  MANUAL = 'MANUAL',        // Manual adjustment
+}
+
+interface PayrollInputSnapshot {
+  id: number;
+  idNomina: number;
+  idEmpleado: number;
+  sourceType: PayrollInputSourceType;
+  sourceId: number;           // Reference to source record
+  conceptoCodigo: string;     // Concept code (e.g., 'SALARIO', 'BONO')
+  unidades: string;           // Units (e.g., days, hours)
+  montoBase: string;          // Base amount
+  montoFinal: string;         // Final calculated amount
+  isRetro: number;            // Is retroactive?
+  originalPeriod: string;     // Original period if retroactive
+}
+```
+
+### PayrollResult
+
+Aggregated results per employee:
+
+```typescript
+interface PayrollResult {
+  id: number;
+  idNomina: number;
+  idEmpleado: number;
+  totalBruto: string;        // Gross total
+  totalDeducciones: string;  // Total deductions
+  totalNeto: string;         // Net pay (gross - deductions)
+}
+```
+
+## Payroll Types
+
+The system supports multiple payroll types:
+
+```typescript
+export enum TipoPlanilla {
+  REGULAR = 'Regular',              // Standard periodic payroll
+  AGUINALDO = 'Aguinaldo',          // Year-end bonus (13th month)
+  LIQUIDACION = 'Liquidacion',      // Severance/final settlement
+  EXTRAORDINARIA = 'Extraordinaria', // Special/one-time payroll
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Regular" icon="calendar">
+    Standard periodic payroll (weekly, bi-weekly, monthly) for regular salary and recurring benefits.
+  </Accordion>
+  
+  <Accordion title="Aguinaldo" icon="gift">
+    Costa Rican mandatory year-end bonus, typically 1/12th of annual salary, paid in December.
+  </Accordion>
+  
+  <Accordion title="Liquidación" icon="file-invoice-dollar">
+    Final settlement payroll for terminated employees, including severance, vacation payout, and other accruals.
+  </Accordion>
+  
+  <Accordion title="Extraordinaria" icon="star">
+    Special one-time payroll for bonuses, commissions, or other non-recurring payments.
+  </Accordion>
+</AccordionGroup>
+
+## Snapshot System
+
+Payroll uses an immutable snapshot architecture:
+
+<Warning>
+**Why Snapshots?** Employee data (salary, position, etc.) can change over time. Snapshots preserve the exact state of data at the moment payroll was processed, ensuring historical accuracy and preventing retroactive modifications.
+</Warning>
+
+When a payroll is processed:
+
+1. **Employee Snapshot**: Current salary, work schedule, bank account
+2. **Input Snapshot**: All approved HR actions within the payroll period
+3. **Result Calculation**: Gross, deductions, and net pay per employee
+
+These snapshots are **never modified** after creation, providing a permanent audit trail.
+
+## Concurrency Control
+
+The system uses optimistic locking to prevent conflicts:
+
+```typescript
+// Each update increments versionLock
+interface PayrollCalendar {
+  versionLock: number;
+}
+
+// Apply operation checks version
+PATCH /api/payroll/:id/apply
+{
+  "version": 5  // Expected version
+}
+```
+
+If another user modified the payroll, the version check fails and returns a conflict error.
+
+## Slot-Based Uniqueness
+
+Payrolls are uniquely identified by a "slot key" to prevent duplicates:
+
+```typescript
+slotKey = `${companyId}|${startDate}|${endDate}|${tipoPlanillaId}|${currency}`
+// Example: "42|2026-01-01|2026-01-15|1|CRC"
+```
+
+Only one **active** payroll (states: Abierta, En Proceso, Verificada) can exist per slot. Once applied, the slot becomes available for the next period.
+
+## Related Resources
+
+<CardGroup cols={3}>
+  <Card title="Payroll Articles" icon="list" href="/payroll/articles">
+    Salary components and concepts
+  </Card>
+  <Card title="Movements" icon="arrows-rotate" href="/payroll/movements">
+    Manual adjustments and corrections
+  </Card>
+  <Card title="Holidays" icon="calendar-day" href="/payroll/holidays">
+    Holiday calendar management
+  </Card>
+  <Card title="Processing" icon="gears" href="/payroll/processing">
+    Step-by-step processing guide
+  </Card>
+</CardGroup>

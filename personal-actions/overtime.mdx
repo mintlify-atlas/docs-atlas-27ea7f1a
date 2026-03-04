@@ -1,0 +1,609 @@
+---
+title: Overtime
+description: Track and calculate overtime hours with shift-based multipliers for day, night, and mixed schedules
+icon: clock
+---
+
+Overtime actions track hours worked beyond the regular schedule and automatically calculate the additional compensation based on shift type and legal requirements.
+
+## Overview
+
+Overtime actions (`tipoAccion: 'hora_extra'`) enable HR to:
+- Record extra hours worked by shift type
+- Apply correct overtime multipliers (1.5x, 2x, etc.)
+- Track overtime periods and dates
+- Calculate overtime pay automatically
+- Ensure compliance with labor regulations
+
+## Shift types
+
+Costa Rican labor law defines different overtime rates based on when the work occurs. The system supports three shift classifications:
+
+<Tabs>
+  <Tab title="Day shift (8)">
+    **Day shift overtime** (`DIURNA_8`) applies to work performed during standard daytime hours.
+    
+    **Time range:** 5:00 AM to 7:00 PM
+    
+    **Overtime multiplier:** 1.5x (time and a half)
+    
+    **Calculation:**
+    ```typescript
+    overtime_pay = (hourly_rate * 1.5) * hours_worked
+    ```
+    
+    **Example:**
+    ```typescript
+    {
+      "tipoJornadaHorasExtras": "8",
+      "fechaInicioHoraExtra": "2026-03-15",
+      "fechaFinHoraExtra": "2026-03-15",
+      "cantidad": 4,  // 4 hours
+      "monto": 6000  // Calculated as (hourly_rate * 1.5) * 4
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Night shift (6)">
+    **Night shift overtime** (`NOCTURNA_6`) applies to work performed during nighttime hours.
+    
+    **Time range:** 7:00 PM to 5:00 AM
+    
+    **Overtime multiplier:** 2.0x (double time)
+    
+    **Calculation:**
+    ```typescript
+    overtime_pay = (hourly_rate * 2.0) * hours_worked
+    ```
+    
+    **Example:**
+    ```typescript
+    {
+      "tipoJornadaHorasExtras": "6",
+      "fechaInicioHoraExtra": "2026-03-15",
+      "fechaFinHoraExtra": "2026-03-16",
+      "cantidad": 6,  // 6 hours
+      "monto": 12000  // Calculated as (hourly_rate * 2.0) * 6
+    }
+    ```
+    
+    <Info>
+    Night shift overtime carries a higher multiplier due to the disruption to normal sleep patterns and family life.
+    </Info>
+  </Tab>
+  
+  <Tab title="Mixed shift (7)">
+    **Mixed shift overtime** (`MIXTA_7`) applies when overtime spans both day and night hours.
+    
+    **Time range:** Crosses the 7:00 PM boundary
+    
+    **Overtime multiplier:** 1.75x (weighted average)
+    
+    **Calculation:**
+    ```typescript
+    overtime_pay = (hourly_rate * 1.75) * hours_worked
+    ```
+    
+    **Example:**
+    ```typescript
+    {
+      "tipoJornadaHorasExtras": "7",
+      "fechaInicioHoraExtra": "2026-03-15",
+      "fechaFinHoraExtra": "2026-03-15",
+      "cantidad": 5,  // 5 hours spanning 5 PM to 10 PM
+      "monto": 8750  // Calculated as (hourly_rate * 1.75) * 5
+    }
+    ```
+    
+    <Warning>
+    Use mixed shift classification when you cannot separate the exact hours into day and night portions, or when labor law requires treating the entire period as mixed.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Creating overtime
+
+Overtime is created through the `/personal-actions/horas-extras` endpoint.
+
+### Request structure
+
+```typescript
+interface UpsertOvertimeDto {
+  idEmpresa: number;
+  idEmpleado: number;
+  observacion?: string;      // Optional notes (max 500 chars)
+  lines: OvertimeLine[];     // One or more overtime lines
+}
+
+interface OvertimeLine {
+  payrollId: number;                    // Target payroll calendar
+  fechaEfecto: string;                  // Effective date (ISO 8601)
+  movimientoId: number;                 // Payroll movement ID
+  fechaInicioHoraExtra: string;         // Start date of overtime period
+  fechaFinHoraExtra: string;            // End date of overtime period
+  tipoJornadaHorasExtras: '6' | '7' | '8';  // Shift type
+  cantidad: number;                     // Hours worked
+  monto: number;                        // Calculated pay
+  remuneracion: boolean;                // Counts as salary (typically true)
+  formula?: string;                     // Optional calculation formula
+}
+```
+
+### Example: Day shift overtime
+
+```typescript
+POST /personal-actions/horas-extras
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "End of quarter inventory - worked late to complete stock count",
+  "lines": [
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 8,
+      "fechaInicioHoraExtra": "2026-03-31",
+      "fechaFinHoraExtra": "2026-03-31",
+      "tipoJornadaHorasExtras": "8",
+      "cantidad": 3,
+      "monto": 4500.00,
+      "remuneracion": true,
+      "formula": "(salario_base / 240) * 1.5 * cantidad"
+    }
+  ]
+}
+```
+
+### Example: Multi-week overtime
+
+```typescript
+POST /personal-actions/horas-extras
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Project deadline - extended hours throughout March",
+  "lines": [
+    {
+      "payrollId": 99,
+      "fechaEfecto": "2026-03-15",
+      "movimientoId": 8,
+      "fechaInicioHoraExtra": "2026-03-01",
+      "fechaFinHoraExtra": "2026-03-15",
+      "tipoJornadaHorasExtras": "8",
+      "cantidad": 12,
+      "monto": 18000.00,
+      "remuneracion": true
+    },
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 8,
+      "fechaInicioHoraExtra": "2026-03-16",
+      "fechaFinHoraExtra": "2026-03-31",
+      "tipoJornadaHorasExtras": "8",
+      "cantidad": 10,
+      "monto": 15000.00,
+      "remuneracion": true
+    }
+  ]
+}
+```
+
+## Approval workflow
+
+Overtime follows the standard approval process:
+
+<Steps>
+  <Step title="Supervisor approval">
+    Direct supervisor confirms the hours worked and business justification.
+    
+    **Required permission:** `hr-action-horas-extras:approve`
+    
+    ```bash
+    PATCH /personal-actions/horas-extras/123/advance
+    ```
+    
+    <Info>
+    Supervisors should verify timesheets or time-tracking records before approving overtime.
+    </Info>
+  </Step>
+  
+  <Step title="HR approval">
+    HR verifies compliance with labor regulations and overtime policies.
+    
+    **Required permission:** `hr-action-horas-extras:approve`
+    
+    ```bash
+    PATCH /personal-actions/horas-extras/123/advance
+    ```
+  </Step>
+  
+  <Step title="Payroll integration">
+    Approved overtime is included in payroll calculations with the appropriate multipliers applied.
+  </Step>
+</Steps>
+
+## Validation rules
+
+### Date validation
+
+<AccordionGroup>
+  <Accordion title="Date range requirements">
+    - `fechaInicioHoraExtra` must be ≤ `fechaFinHoraExtra`
+    - Both dates must be valid ISO 8601 format
+    - Dates should align with the target payroll period
+    
+    ```typescript
+    // Valid
+    fechaInicioHoraExtra: "2026-03-15"
+    fechaFinHoraExtra: "2026-03-15"  // Same day
+    
+    // Valid
+    fechaInicioHoraExtra: "2026-03-15"
+    fechaFinHoraExtra: "2026-03-20"  // Spans 5 days
+    
+    // Invalid
+    fechaInicioHoraExtra: "2026-03-20"
+    fechaFinHoraExtra: "2026-03-15"  // Start after end
+    ```
+  </Accordion>
+  
+  <Accordion title="Hours validation">
+    - `cantidad` must be ≥ 1
+    - Typically represents hours (can use decimals: 2.5 hours)
+    - System does not enforce maximum daily overtime limits automatically
+    
+    <Warning>
+    While the system allows any positive number, Costa Rican labor law limits overtime to 4 hours per day and 12 hours per week. HR should validate compliance before approval.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Amount calculation">
+    - `monto` should reflect hours × rate × multiplier
+    - Can be calculated automatically using formula
+    - Must be ≥ 0, max 9,999,999,999.99
+    
+    **Standard formulas:**
+    ```typescript
+    // Day shift (1.5x)
+    "(salario_base / 240) * 1.5 * cantidad"
+    
+    // Night shift (2.0x)
+    "(salario_base / 240) * 2.0 * cantidad"
+    
+    // Mixed shift (1.75x)
+    "(salario_base / 240) * 1.75 * cantidad"
+    ```
+    
+    <Note>
+    The divisor 240 assumes 8 hours/day × 30 days/month for monthly salary employees.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Payroll integration
+
+Overtime integrates with payroll through quotas and movements.
+
+### Movement configuration
+
+Overtime movements should be configured with appropriate formulas:
+
+```typescript
+{
+  id_movimiento_nomina: 8,
+  nombre_movimiento_nomina: "Horas Extra Diurnas",
+  id_tipo_accion_personal_movimiento_nomina: 5,  // Overtime type
+  formula_ayuda_movimiento_nomina: "(salario_base / 240) * 1.5 * cantidad_linea"
+}
+```
+
+### Tax treatment
+
+Overtime pay is treated as ordinary salary income:
+- Subject to income tax withholding
+- Included in social security calculations
+- Affects aguinaldo (Christmas bonus) base
+- Counts toward severance calculations
+
+## Editing overtime
+
+Edit overtime in draft or pending states:
+
+```typescript
+PATCH /personal-actions/horas-extras/123
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Corrected: 4 hours total, not 3",
+  "lines": [
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 8,
+      "fechaInicioHoraExtra": "2026-03-31",
+      "fechaFinHoraExtra": "2026-03-31",
+      "tipoJornadaHorasExtras": "8",
+      "cantidad": 4,  // Corrected from 3
+      "monto": 6000.00,  // Updated amount
+      "remuneracion": true
+    }
+  ]
+}
+```
+
+**Required permission:** `hr-action-horas-extras:edit`
+
+<Warning>
+Editing replaces all lines. Include all lines you want to keep in the update payload.
+</Warning>
+
+## Invalidating overtime
+
+Invalidate overtime that should not be paid:
+
+```bash
+PATCH /personal-actions/horas-extras/123/invalidate
+Content-Type: application/json
+
+{
+  "motivo": "Time records were incorrect - hours actually worked during regular shift"
+}
+```
+
+**Required permission:** `hr-action-horas-extras:cancel`
+
+## Retrieving overtime details
+
+Get complete overtime information:
+
+```bash
+GET /personal-actions/horas-extras/123
+```
+
+### Response structure
+
+```json
+{
+  "id": 123,
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "tipoAccion": "hora_extra",
+  "groupId": "HEX-1709567890-m3n9k7",
+  "estado": 4,
+  "descripcion": "End of quarter inventory",
+  "fechaEfecto": "2026-03-31",
+  "monto": 4500.00,
+  "moneda": "CRC",
+  "aprobadoPor": 5,
+  "fechaAprobacion": "2026-03-30T10:15:00Z",
+  "lines": [
+    {
+      "idLinea": 456,
+      "idAccion": 123,
+      "payrollId": 100,
+      "payrollLabel": "Quincena 2 - Marzo 2026",
+      "payrollEstado": 1,
+      "movimientoId": 8,
+      "movimientoLabel": "Horas Extra Diurnas",
+      "movimientoInactivo": false,
+      "fechaInicioHoraExtra": "2026-03-31",
+      "fechaFinHoraExtra": "2026-03-31",
+      "tipoJornadaHorasExtras": "8",
+      "cantidad": 3,
+      "monto": 4500.00,
+      "remuneracion": true,
+      "formula": "(salario_base / 240) * 1.5 * cantidad",
+      "orden": 1,
+      "fechaEfecto": "2026-03-31"
+    }
+  ]
+}
+```
+
+## Database schema
+
+Overtime-specific table:
+
+```sql
+CREATE TABLE acc_horas_extras_lineas (
+  id_linea_hora_extra INT PRIMARY KEY,
+  id_accion INT NOT NULL,
+  id_cuota INT,
+  id_empresa INT NOT NULL,
+  id_empleado INT NOT NULL,
+  id_calendario_nomina INT NOT NULL,
+  id_movimiento_nomina INT NOT NULL,
+  tipo_jornada_horas_extras_linea ENUM('6', '7', '8') DEFAULT '8',
+  fecha_inicio_hora_extra_linea DATE NOT NULL,
+  fecha_fin_hora_extra_linea DATE NOT NULL,
+  cantidad_linea INT NOT NULL,
+  monto_linea DECIMAL(12,2) NOT NULL,
+  remuneracion_linea TINYINT(1) DEFAULT 1,
+  formula_linea TEXT,
+  orden_linea INT,
+  fecha_efecto_linea DATE,
+  fecha_creacion_linea DATETIME,
+  fecha_modificacion_linea DATETIME,
+  FOREIGN KEY (id_accion) REFERENCES acc_acciones_personal(id_accion),
+  INDEX idx_hex_linea_accion (id_accion),
+  INDEX idx_hex_linea_empleado (id_empleado)
+);
+```
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Track overtime periods accurately">
+    Use `fechaInicioHoraExtra` and `fechaFinHoraExtra` to document exactly when overtime occurred:
+    
+    ```typescript
+    // Good: Specific date range
+    {
+      "fechaInicioHoraExtra": "2026-03-15",
+      "fechaFinHoraExtra": "2026-03-20",
+      "cantidad": 12,  // 12 hours over 5 days
+      "observacion": "Daily 2-3 hours extra for project deadline"
+    }
+    
+    // Bad: Vague dating
+    {
+      "fechaInicioHoraExtra": "2026-03-01",
+      "fechaFinHoraExtra": "2026-03-31",
+      "cantidad": 12,
+      "observacion": "Some overtime this month"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use correct shift classification">
+    Choose the shift type that matches when work actually occurred:
+    
+    ```typescript
+    // Scenario: Worked 2 PM to 8 PM
+    {
+      "tipoJornadaHorasExtras": "7",  // MIXED - crosses 7 PM boundary
+      "cantidad": 6
+    }
+    
+    // Scenario: Worked 8 PM to midnight
+    {
+      "tipoJornadaHorasExtras": "6",  // NIGHT - entirely after 7 PM
+      "cantidad": 4
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Document business justification">
+    Include clear justification in the `observacion` field:
+    
+    ```typescript
+    {
+      "observacion": "Project Phoenix go-live support - approved by VP Operations. " +
+                     "Supervisor: John Smith. Time tracking ref: TS-2026-0315"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Verify against time tracking">
+    Cross-reference overtime entries with time-tracking systems before approval:
+    
+    ```typescript
+    // Include time-tracking references
+    {
+      "observacion": "Verified against ClockIn records - Entry #CK2026031500042"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Monitor overtime limits">
+    While the system doesn't enforce limits, track cumulative overtime to ensure compliance:
+    
+    **Costa Rican limits:**
+    - Maximum 4 hours/day
+    - Maximum 12 hours/week
+    - Requires Ministry of Labor authorization for exceptions
+    
+    Query current week overtime:
+    ```sql
+    SELECT SUM(cantidad_linea) as total_hours
+    FROM acc_horas_extras_lineas l
+    JOIN acc_acciones_personal a ON a.id_accion = l.id_accion
+    WHERE l.id_empleado = ?
+      AND a.estado_accion IN (2,3,4)
+      AND l.fecha_inicio_hora_extra_linea >= DATE_SUB(CURDATE(), INTERVAL 7 DAY);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Common scenarios
+
+### Emergency production support
+
+```typescript
+POST /personal-actions/horas-extras
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Emergency: Production server failure - stayed overnight for recovery",
+  "lines": [{
+    "payrollId": 100,
+    "fechaEfecto": "2026-03-15",
+    "movimientoId": 9,  // Night shift overtime movement
+    "fechaInicioHoraExtra": "2026-03-15",
+    "fechaFinHoraExtra": "2026-03-16",
+    "tipoJornadaHorasExtras": "6",  // Night shift
+    "cantidad": 8,
+    "monto": 16000.00,
+    "remuneracion": true,
+    "formula": "(salario_base / 240) * 2.0 * cantidad"
+  }]
+}
+```
+
+### Regular weekly overtime
+
+```typescript
+POST /personal-actions/horas-extras
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Standard Saturday coverage - weeks 1-4 March 2026",
+  "lines": [
+    {
+      "payrollId": 99,
+      "fechaEfecto": "2026-03-15",
+      "movimientoId": 8,
+      "fechaInicioHoraExtra": "2026-03-01",
+      "fechaFinHoraExtra": "2026-03-15",
+      "tipoJornadaHorasExtras": "8",
+      "cantidad": 8,  // 2 Saturdays × 4 hours
+      "monto": 12000.00,
+      "remuneracion": true
+    },
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 8,
+      "fechaInicioHoraExtra": "2026-03-16",
+      "fechaFinHoraExtra": "2026-03-31",
+      "tipoJornadaHorasExtras": "8",
+      "cantidad": 8,  // 2 more Saturdays × 4 hours
+      "monto": 12000.00,
+      "remuneracion": true
+    }
+  ]
+}
+```
+
+## Code reference
+
+Key implementation files:
+
+- **Service**: `/src/modules/personal-actions/personal-actions.service.ts` (createOvertime)
+- **Entity**: `/src/modules/personal-actions/entities/overtime-line.entity.ts:10`
+- **DTO**: `/src/modules/personal-actions/dto/upsert-overtime.dto.ts`
+- **Controller**: `/src/modules/personal-actions/personal-actions.controller.ts:419`
+
+## Related topics
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="book" href="/personal-actions/overview">
+    Personal actions system overview
+  </Card>
+  <Card title="Absences" icon="calendar-xmark" href="/personal-actions/absences">
+    Track employee absences
+  </Card>
+  <Card title="Bonuses" icon="gift" href="/personal-actions/bonuses">
+    Manage employee bonuses
+  </Card>
+  <Card title="Payroll integration" icon="money-bill-wave" href="/payroll/overview">
+    How overtime affects payroll
+  </Card>
+</CardGroup>

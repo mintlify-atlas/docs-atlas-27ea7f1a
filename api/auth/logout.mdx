@@ -1,0 +1,73 @@
+---
+title: "Logout"
+api: "POST /api/auth/logout"
+description: "End the current user session and revoke tokens"
+---
+
+Ends the current user session by revoking the refresh token and clearing all authentication cookies.
+
+## Endpoint
+
+```
+POST /api/auth/logout
+```
+
+## Authentication
+
+This endpoint requires a valid JWT access token. The token should be present in the `kpital_token` httpOnly cookie.
+
+## Request Body
+
+This endpoint does not accept a request body.
+
+## Response
+
+<ResponseField name="message" type="string" required>
+  Confirmation message indicating successful logout
+</ResponseField>
+
+## Cookies Cleared
+
+The following httpOnly cookies are cleared:
+
+- **kpital_token** - Access token
+- **kpital_refresh** - Refresh token (also revoked in database)
+- **kpital_csrf** - CSRF token
+
+## Response Example
+
+```json
+{
+  "message": "Sesion cerrada"
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when no valid authentication token is present.
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized",
+  "error": "Unauthorized"
+}
+```
+
+## Audit Logging
+
+This endpoint logs logout events:
+
+- **Event:** `logout`
+- **Outcome:** `success`
+- **Data:** User ID (if available), IP address
+
+## Notes
+
+- The refresh token is revoked in the database to prevent reuse
+- All authentication cookies are cleared from the client
+- Subsequent requests will require re-authentication
+- Even if the refresh token is missing or invalid, cookies are still cleared
+- The endpoint always returns success (200) after clearing cookies

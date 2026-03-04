@@ -1,0 +1,309 @@
+---
+title: 'Update Employee'
+api: 'PUT /employees/:id'
+---
+
+Update an existing employee record. All fields are optional - only send the fields you want to update.
+
+## Authentication
+
+Requires permissions: `employee:edit` AND `employee:view-sensitive`
+
+## Path Parameters
+
+<ParamField path="id" type="number" required>
+  Employee ID to update.
+</ParamField>
+
+## Request Body
+
+All fields are optional. Only include the fields you want to update.
+
+### Identity Fields
+
+<ParamField body="nombre" type="string">
+  First name (up to 100 characters).
+</ParamField>
+
+<ParamField body="apellido1" type="string">
+  First last name (up to 100 characters).
+</ParamField>
+
+<ParamField body="apellido2" type="string">
+  Second last name (up to 100 characters).
+</ParamField>
+
+<ParamField body="cedula" type="string">
+  National ID number (up to 30 characters).
+</ParamField>
+
+### Personal Information
+
+<ParamField body="genero" type="string">
+  Gender. Options: `Masculino`, `Femenino`, `Otro`.
+</ParamField>
+
+<ParamField body="estadoCivil" type="string">
+  Marital status. Options: `Soltero`, `Casado`, `Divorciado`, `Viudo`, `Unión Libre`.
+</ParamField>
+
+<ParamField body="cantidadHijos" type="number">
+  Number of children (minimum 0).
+</ParamField>
+
+<ParamField body="telefono" type="string">
+  Phone number (up to 30 characters).
+</ParamField>
+
+<ParamField body="direccion" type="string">
+  Home address.
+</ParamField>
+
+### Contact Information
+
+<ParamField body="email" type="string">
+  Email address (up to 150 characters). Must be unique across the system.
+</ParamField>
+
+### Organizational Relationships
+
+<ParamField body="idDepartamento" type="number">
+  Department ID.
+</ParamField>
+
+<ParamField body="idPuesto" type="number">
+  Position/job title ID.
+</ParamField>
+
+<ParamField body="idSupervisor" type="number">
+  Supervisor's employee ID.
+</ParamField>
+
+### Contract and Payment
+
+<ParamField body="tipoContrato" type="string">
+  Contract type. Options: `Indefinido`, `Plazo Fijo`, `Por Servicios Profesionales`.
+</ParamField>
+
+<ParamField body="jornada" type="string">
+  Work schedule. Options: `Tiempo Completo`, `Medio Tiempo`, `Por Horas`.
+</ParamField>
+
+<ParamField body="idPeriodoPago" type="number">
+  Pay period ID.
+</ParamField>
+
+<ParamField body="salarioBase" type="number">
+  Base salary amount.
+</ParamField>
+
+<ParamField body="monedaSalario" type="string">
+  Salary currency. Options: `CRC`, `USD`.
+</ParamField>
+
+<ParamField body="numeroCcss" type="string">
+  Social security number (4-30 characters).
+</ParamField>
+
+<ParamField body="cuentaBanco" type="string">
+  Bank account number (up to 50 characters).
+</ParamField>
+
+<ParamField body="fechaIngreso" type="string">
+  Hire date in ISO 8601 format (YYYY-MM-DD).
+</ParamField>
+
+<ParamField body="fechaSalida" type="string">
+  Termination date in ISO 8601 format (YYYY-MM-DD). Use the [liquidar endpoint](/api/employees/update) instead for proper termination workflow.
+</ParamField>
+
+<ParamField body="motivoSalida" type="string">
+  Reason for termination.
+</ParamField>
+
+### Accumulated Benefits
+
+<ParamField body="vacacionesAcumuladas" type="string">
+  Accumulated vacation days (integer as string). Example: "15".
+</ParamField>
+
+<ParamField body="cesantiaAcumulada" type="string">
+  Accumulated severance (decimal as string). Example: "500000.50".
+</ParamField>
+
+## Response
+
+Returns the updated employee object with all fields.
+
+<ResponseField name="id" type="number">
+  Employee identifier.
+</ResponseField>
+
+<ResponseField name="fechaModificacion" type="string">
+  Last modification timestamp in ISO 8601 format.
+</ResponseField>
+
+<ResponseField name="modificadoPor" type="number">
+  User ID who made the update.
+</ResponseField>
+
+All other fields match the employee entity structure.
+
+## Example Request
+
+```bash
+curl -X PUT "https://api.newkipital.com/employees/1" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idDepartamento": 2,
+    "idPuesto": 7,
+    "salarioBase": 2800000,
+    "telefono": "8888-9999"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "id": 1,
+  "idEmpresa": 1,
+  "codigo": "EMP-001",
+  "cedula": "1-2345-6789",
+  "nombre": "Juan",
+  "apellido1": "Pérez",
+  "apellido2": "Gómez",
+  "email": "juan.perez@company.com",
+  "genero": "Masculino",
+  "estadoCivil": "Casado",
+  "cantidadHijos": 2,
+  "telefono": "8888-9999",
+  "direccion": "San José, Costa Rica",
+  "idDepartamento": 2,
+  "idPuesto": 7,
+  "idSupervisor": 10,
+  "fechaIngreso": "2020-01-15",
+  "fechaSalida": null,
+  "motivoSalida": null,
+  "tipoContrato": "Indefinido",
+  "jornada": "Tiempo Completo",
+  "idPeriodoPago": 1,
+  "salarioBase": "2800000",
+  "monedaSalario": "CRC",
+  "numeroCcss": "12345678901",
+  "cuentaBanco": "CR12345678901234567890",
+  "vacacionesAcumuladas": "15",
+  "cesantiaAcumulada": "500000",
+  "idUsuario": 42,
+  "estado": 1,
+  "fechaCreacion": "2020-01-10T10:00:00Z",
+  "fechaModificacion": "2026-03-04T18:30:00Z",
+  "creadoPor": 1,
+  "modificadoPor": 5,
+  "datosEncriptados": 1,
+  "versionEncriptacion": "v1",
+  "fechaEncriptacion": "2020-01-10T10:05:00Z"
+}
+```
+
+## Additional Operations
+
+### Inactivate Employee
+
+```http
+PATCH /employees/:id/inactivate
+```
+
+Inactivate an employee without deleting their record.
+
+**Authentication**: Requires permission `employee:inactivate`
+
+**Path Parameters**:
+- `id` (number, required) - Employee ID
+
+**Response**: Updated employee object with `estado` set to `0`.
+
+### Reactivate Employee
+
+```http
+PATCH /employees/:id/reactivate
+```
+
+Reactivate a previously inactivated employee.
+
+**Authentication**: Requires permission `employee:reactivate`
+
+**Path Parameters**:
+- `id` (number, required) - Employee ID
+
+**Response**: Updated employee object with `estado` set to `1`.
+
+### Liquidar (Terminate Employee)
+
+```http
+PATCH /employees/:id/liquidar
+```
+
+Properly terminate an employee by setting their exit date and reason. This is the recommended way to terminate employees.
+
+**Authentication**: Requires permissions `employee:edit` AND `employee:view-sensitive`
+
+**Path Parameters**:
+- `id` (number, required) - Employee ID
+
+**Request Body**:
+- `fechaSalida` (string, optional) - Termination date in ISO 8601 format (YYYY-MM-DD). Defaults to today if not provided.
+- `motivo` (string, optional) - Reason for termination.
+
+**Example Request**:
+```bash
+curl -X PATCH "https://api.newkipital.com/employees/1/liquidar" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fechaSalida": "2026-03-31",
+    "motivo": "Renuncia voluntaria"
+  }'
+```
+
+**Response**: Updated employee object with `fechaSalida` and `motivoSalida` set.
+
+## Error Responses
+
+### Employee Not Found
+```json
+{
+  "statusCode": 404,
+  "message": "Employee not found",
+  "error": "Not Found"
+}
+```
+
+### Duplicate Email
+```json
+{
+  "statusCode": 409,
+  "message": "Email already exists",
+  "error": "Conflict"
+}
+```
+
+### Missing Required Permission
+```json
+{
+  "statusCode": 403,
+  "message": "Insufficient permissions",
+  "error": "Forbidden"
+}
+```
+
+## Notes
+
+- This endpoint requires both `employee:edit` AND `employee:view-sensitive` permissions because it can update sensitive salary and personal information
+- Sensitive fields are automatically re-encrypted when updated
+- The `idUsuario` field cannot be updated through this endpoint
+- Email must remain unique across the system
+- Use the inactivate/reactivate endpoints for status changes instead of updating the `estado` field directly
+- Use the liquidar endpoint for proper employee termination workflow
+- Changes are tracked in the audit trail (see [Get Audit Trail](/api/employees/get))

@@ -1,0 +1,432 @@
+---
+title: 'User Assignment'
+description: 'Manage user-role assignments and permission overrides'
+---
+
+## Assign App to User
+
+<api method="POST" endpoint="/user-assignments/apps" auth="config:users:assign-apps">
+  Grants a user access to a specific application.
+
+  <ParamField body="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField body="idApp" type="number" required>
+    The ID of the application to grant access to
+  </ParamField>
+
+  <ResponseField name="success" type="boolean">
+    Indicates whether the assignment was successful
+  </ResponseField>
+
+  <ResponseField name="userId" type="number">
+    The user ID
+  </ResponseField>
+
+  <ResponseField name="appId" type="number">
+    The application ID that was assigned
+  </ResponseField>
+</api>
+
+## Revoke App Access from User
+
+<api method="PATCH" endpoint="/user-assignments/apps/:idUsuario/:idApp/revoke" auth="config:users:assign-apps">
+  Revokes a user's access to a specific application.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField path="idApp" type="number" required>
+    The ID of the application to revoke
+  </ParamField>
+
+  <ResponseField name="success" type="boolean">
+    Indicates whether the revocation was successful
+  </ResponseField>
+</api>
+
+## Get User Apps
+
+<api method="GET" endpoint="/user-assignments/apps/:idUsuario" auth="config:users">
+  Retrieves all applications a user has access to.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ResponseField name="apps" type="array">
+    Array of application objects the user has access to
+
+    <ResponseField name="id" type="number">
+      Application ID
+    </ResponseField>
+
+    <ResponseField name="codigo" type="string">
+      Application code (e.g., "kpital", "timewise")
+    </ResponseField>
+
+    <ResponseField name="nombre" type="string">
+      Application display name
+    </ResponseField>
+  </ResponseField>
+</api>
+
+## Assign Company to User
+
+<api method="POST" endpoint="/user-assignments/companies" auth="config:users:assign-companies">
+  Associates a user with a company, enabling them to access company-specific data.
+
+  <ParamField body="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField body="idEmpresa" type="number" required>
+    The ID of the company to assign
+  </ParamField>
+
+  <ResponseField name="success" type="boolean">
+    Indicates whether the assignment was successful
+  </ResponseField>
+
+  <ResponseField name="userId" type="number">
+    The user ID
+  </ResponseField>
+
+  <ResponseField name="companyId" type="number">
+    The company ID that was assigned
+  </ResponseField>
+</api>
+
+## Revoke Company Access from User
+
+<api method="PATCH" endpoint="/user-assignments/companies/:idUsuario/:idEmpresa/revoke" auth="config:users:assign-companies">
+  Removes a user's association with a company.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField path="idEmpresa" type="number" required>
+    The ID of the company to revoke
+  </ParamField>
+
+  <ResponseField name="success" type="boolean">
+    Indicates whether the revocation was successful
+  </ResponseField>
+</api>
+
+## Get User Companies
+
+<api method="GET" endpoint="/user-assignments/companies/:idUsuario" auth="config:users">
+  Retrieves all companies a user is associated with.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ResponseField name="companies" type="array">
+    Array of company objects the user has access to
+
+    <ResponseField name="id" type="number">
+      Company ID
+    </ResponseField>
+
+    <ResponseField name="nombre" type="string">
+      Company name
+    </ResponseField>
+
+    <ResponseField name="rut" type="string">
+      Company tax identifier
+    </ResponseField>
+  </ResponseField>
+</api>
+
+## Assign Role to User
+
+<api method="POST" endpoint="/user-assignments/roles" auth="config:users:assign-roles">
+  Assigns a role to a user within a specific company and application context. This is the core of the RBAC model, defining what permissions a user has in a given scope.
+
+  <ParamField body="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField body="idRol" type="number" required>
+    The ID of the role to assign
+  </ParamField>
+
+  <ParamField body="idEmpresa" type="number" required>
+    The ID of the company this role applies to
+  </ParamField>
+
+  <ParamField body="idApp" type="number" required>
+    The ID of the application this role applies to
+  </ParamField>
+
+  <ResponseField name="id" type="number">
+    Unique assignment ID
+  </ResponseField>
+
+  <ResponseField name="idUsuario" type="number">
+    User ID
+  </ResponseField>
+
+  <ResponseField name="idRol" type="number">
+    Role ID
+  </ResponseField>
+
+  <ResponseField name="idEmpresa" type="number">
+    Company ID
+  </ResponseField>
+
+  <ResponseField name="idApp" type="number">
+    Application ID
+  </ResponseField>
+
+  <ResponseField name="estado" type="number">
+    Assignment status: 1 = active
+  </ResponseField>
+
+  <ResponseField name="fechaAsignacion" type="string">
+    ISO timestamp of when the role was assigned
+  </ResponseField>
+</api>
+
+## Revoke Role from User
+
+<api method="PATCH" endpoint="/user-assignments/roles/:idUsuario/:idRol/:idEmpresa/:idApp/revoke" auth="config:users:assign-roles">
+  Revokes a role assignment from a user in a specific context.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField path="idRol" type="number" required>
+    The ID of the role to revoke
+  </ParamField>
+
+  <ParamField path="idEmpresa" type="number" required>
+    The company ID context
+  </ParamField>
+
+  <ParamField path="idApp" type="number" required>
+    The application ID context
+  </ParamField>
+
+  <ResponseField name="success" type="boolean">
+    Indicates whether the revocation was successful
+  </ResponseField>
+</api>
+
+## Get User Roles
+
+<api method="GET" endpoint="/user-assignments/roles/:idUsuario" auth="config:users">
+  Retrieves all role assignments for a user, optionally filtered by company and/or application.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField query="idEmpresa" type="number">
+    Filter by company ID
+  </ParamField>
+
+  <ParamField query="idApp" type="number">
+    Filter by application ID
+  </ParamField>
+
+  <ResponseField name="assignments" type="array">
+    Array of role assignment objects
+
+    <ResponseField name="id" type="number">
+      Assignment ID
+    </ResponseField>
+
+    <ResponseField name="idRol" type="number">
+      Role ID
+    </ResponseField>
+
+    <ResponseField name="rolNombre" type="string">
+      Role display name
+    </ResponseField>
+
+    <ResponseField name="idEmpresa" type="number">
+      Company ID
+    </ResponseField>
+
+    <ResponseField name="empresaNombre" type="string">
+      Company name
+    </ResponseField>
+
+    <ResponseField name="idApp" type="number">
+      Application ID
+    </ResponseField>
+
+    <ResponseField name="appCodigo" type="string">
+      Application code
+    </ResponseField>
+
+    <ResponseField name="estado" type="number">
+      Assignment status
+    </ResponseField>
+  </ResponseField>
+</api>
+
+## Replace User Roles in Context
+
+<api method="PUT" endpoint="/user-assignments/roles/:idUsuario/context" auth="config:users:assign-roles">
+  Replaces all role assignments for a user within a specific company and application context. This operation removes existing role assignments in the context and assigns the new ones.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField body="companyId" type="number" required>
+    The company ID context. Minimum value: 1.
+  </ParamField>
+
+  <ParamField body="appCode" type="string" required>
+    The application code (e.g., "kpital", "timewise"). Must be lowercase alphanumeric with hyphens.
+  </ParamField>
+
+  <ParamField body="roleIds" type="array" required>
+    Array of role IDs to assign. Must be unique integers with minimum value of 1.
+  </ParamField>
+
+  <ResponseField name="userId" type="number">
+    User ID
+  </ResponseField>
+
+  <ResponseField name="companyId" type="number">
+    Company ID context
+  </ResponseField>
+
+  <ResponseField name="appCode" type="string">
+    Application code context
+  </ResponseField>
+
+  <ResponseField name="assigned" type="array">
+    Array of role IDs that were successfully assigned
+  </ResponseField>
+
+  <ResponseField name="removed" type="array">
+    Array of role IDs that were removed from the user
+  </ResponseField>
+</api>
+
+## Replace User Permission Overrides
+
+<api method="PUT" endpoint="/user-assignments/permissions/:idUsuario/context" auth="config:users:deny-permissions">
+  Sets explicit permission overrides for a user in a specific company and application context. Overrides allow you to grant additional permissions (allow) or explicitly deny permissions (deny) that would otherwise be granted through roles.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField body="appCode" type="string" required>
+    The application code context. Must be lowercase alphanumeric with hyphens.
+  </ParamField>
+
+  <ParamField body="companyId" type="number" required>
+    The company ID context. Minimum value: 1.
+  </ParamField>
+
+  <ParamField body="allow" type="array">
+    Array of permission codes to explicitly grant. Each code must follow the format `module:action[:subaction]` (e.g., "payroll:approve:special"). These permissions are added to those granted by roles.
+  </ParamField>
+
+  <ParamField body="deny" type="array">
+    Array of permission codes to explicitly deny. Each code must follow the format `module:action[:subaction]`. Denials take precedence over both role-based and allowed permissions.
+  </ParamField>
+
+  <ResponseField name="userId" type="number">
+    User ID
+  </ResponseField>
+
+  <ResponseField name="companyId" type="number">
+    Company ID context
+  </ResponseField>
+
+  <ResponseField name="appCode" type="string">
+    Application code context
+  </ResponseField>
+
+  <ResponseField name="allowed" type="array">
+    Array of permission codes that were explicitly allowed
+  </ResponseField>
+
+  <ResponseField name="denied" type="array">
+    Array of permission codes that were explicitly denied
+  </ResponseField>
+</api>
+
+## Get User Permission Overrides
+
+<api method="GET" endpoint="/user-assignments/permissions/:idUsuario/context" auth="config:users:deny-permissions">
+  Retrieves all permission overrides for a user in a specific company and application context.
+
+  <ParamField path="idUsuario" type="number" required>
+    The ID of the user
+  </ParamField>
+
+  <ParamField query="companyId" type="number" required>
+    The company ID context
+  </ParamField>
+
+  <ParamField query="appCode" type="string" required>
+    The application code context
+  </ParamField>
+
+  <ResponseField name="userId" type="number">
+    User ID
+  </ResponseField>
+
+  <ResponseField name="companyId" type="number">
+    Company ID context
+  </ResponseField>
+
+  <ResponseField name="appCode" type="string">
+    Application code context
+  </ResponseField>
+
+  <ResponseField name="overrides" type="object">
+    Permission override configuration
+
+    <ResponseField name="allow" type="array">
+      Array of permission codes explicitly allowed for this user
+    </ResponseField>
+
+    <ResponseField name="deny" type="array">
+      Array of permission codes explicitly denied for this user
+    </ResponseField>
+  </ResponseField>
+</api>
+
+## Permission Resolution Logic
+
+When determining if a user has a specific permission, the system follows this resolution order:
+
+1. **Explicit Denials**: If the permission is in the user's `deny` list for the context, access is denied regardless of other factors.
+
+2. **Explicit Allows**: If the permission is in the user's `allow` list, access is granted.
+
+3. **Role-Based Permissions**: If the user has a role in the context that includes the permission, access is granted.
+
+4. **Default**: If none of the above conditions match, access is denied.
+
+This means denial overrides always take precedence, followed by explicit allows, and finally role-based permissions.
+
+## Context-Based Access Control
+
+The RBAC model is context-aware, meaning permissions are evaluated within the scope of:
+
+- **User**: The person performing the action
+- **Company**: The company being accessed
+- **Application**: The application being used (kpital or timewise)
+
+This allows for scenarios like:
+
+- A user can be an ADMIN in Company A but an EMPLOYEE in Company B
+- A user can have different roles in KPITAL vs TIMEWISE for the same company
+- A user can have multiple roles within the same context

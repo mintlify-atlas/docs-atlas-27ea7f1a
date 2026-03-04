@@ -1,0 +1,456 @@
+---
+title: Departments
+description: Organize your workforce with departmental structure for better management, reporting, and cost allocation
+---
+
+## Overview
+
+Departments in NewKipital provide organizational structure to group employees by function, location, or business unit. Department assignments enable targeted reporting, cost allocation, and hierarchical management of your workforce.
+
+<Info>
+  Departments are optional but recommended for organizations with multiple functional areas. Small businesses may choose to operate without departments.
+</Info>
+
+## Department Structure
+
+Each department in the system contains:
+
+- **Department ID** — Unique system identifier
+- **Department Name** — Descriptive title (max 100 characters)
+- **External ID** — Optional integration reference
+- **Status** — Active (1) or inactive (0)
+- **Audit Fields** — Creation and modification tracking
+
+### Key Characteristics
+
+<CardGroup cols={2}>
+  <Card title="Flat Hierarchy" icon="layer-group">
+    Departments exist at a single level. Use naming conventions (e.g., "IT - Infrastructure", "IT - Applications") to indicate sub-groups.
+  </Card>
+  
+  <Card title="Multi-Assignment" icon="users">
+    Each employee can be assigned to exactly one department. Multi-department assignments are not supported.
+  </Card>
+  
+  <Card title="Soft Deletion" icon="archive">
+    Departments are never physically deleted. Inactivation preserves historical data and reporting integrity.
+  </Card>
+  
+  <Card title="Integration Ready" icon="plug">
+    External IDs link departments to cost centers or organizational units in accounting systems.
+  </Card>
+</CardGroup>
+
+## Creating a Department
+
+<Steps>
+  <Step title="Navigate to Departments">
+    From the main menu, go to **Organization** → **Departments** → **Add Department**.
+    
+    Alternatively, departments can be created during employee onboarding if the desired department doesn't exist.
+  </Step>
+  
+  <Step title="Enter Department Information">
+    Provide the core details:
+    
+    - **Department Name** — Clear, descriptive name (required, max 100 characters)
+    - **External ID** — Reference code for external systems (optional, max 45 characters)
+    
+    <Tip>
+      Use consistent naming patterns like "Function - Specialty" (e.g., "Sales - North Region", "Engineering - Backend") for better organization.
+    </Tip>
+  </Step>
+  
+  <Step title="Save and Activate">
+    Click **Create Department**. The new department is immediately active and available for employee assignment.
+  </Step>
+</Steps>
+
+### Example Department Creation
+
+```json
+{
+  "nombre": "Human Resources",
+  "idExterno": "HR-001"
+}
+```
+
+## Managing Departments
+
+### Viewing Departments
+
+Access the department list from **Organization** → **Departments**.
+
+The list shows:
+- Department name
+- Employee count (number assigned)
+- Status (active/inactive)
+- Creation date
+- Last modification date
+
+**List features:**
+- Search by department name
+- Filter by status (active, inactive, or all)
+- Sort by name, employee count, or date
+- Export department list to CSV
+
+### Updating Department Information
+
+Modify existing departments:
+
+1. Select the department from the list
+2. Click **Edit Department**
+3. Update:
+   - Department name
+   - External ID
+4. Click **Save Changes**
+
+<Warning>
+  Renaming a department affects all employee records, reports, and payroll allocations. Ensure consistency in naming conventions.
+</Warning>
+
+### Viewing Department Details
+
+Click a department to see:
+
+**Overview:**
+- Basic information
+- Employee count
+- Status and timestamps
+
+**Employees Tab:**
+- List of all assigned employees
+- Quick access to employee profiles
+- Bulk operations (export, reassign)
+
+**Reports Tab:**
+- Headcount trends
+- Payroll costs by period
+- Turnover rates
+- Position distribution
+
+**Audit Trail Tab:**
+- History of changes
+- Creation and modification events
+- Employee assignment changes
+
+## Department Status
+
+### Active Departments
+
+Active departments (estado = 1):
+- Appear in employee assignment dropdowns
+- Included in standard reports
+- Available for filtering and search
+- Counted in department metrics
+
+### Inactivating a Department
+
+To disable a department:
+
+1. Navigate to the department profile
+2. Click **Actions** → **Inactivate Department**
+3. Confirm the action
+
+<Warning>
+  You cannot inactivate a department with active employee assignments. Reassign employees to other departments first.
+</Warning>
+
+**Effects of inactivation:**
+- Hidden from assignment dropdowns
+- Excluded from standard reports (visible with filter)
+- Historical data preserved
+- Can be reactivated at any time
+
+### Reactivating a Department
+
+To restore an inactive department:
+
+1. Filter the department list to show **Inactive Departments**
+2. Select the department
+3. Click **Actions** → **Reactivate Department**
+4. Confirm the reactivation
+
+The department becomes immediately available for new employee assignments.
+
+## Employee Assignment
+
+Assign employees to departments during:
+
+### New Employee Creation
+
+When adding an employee:
+1. In the **Department** field, select from active departments
+2. The assignment is saved with the employee record
+
+### Employee Profile Updates
+
+Reassign existing employees:
+1. Open the employee profile
+2. Click **Edit Employee**
+3. Change the **Department** selection
+4. Save the changes
+
+**Reassignment triggers:**
+- Updated department metrics
+- Adjusted cost allocation
+- Modified reporting hierarchies
+- Audit trail entry
+
+<Tip>
+  Bulk reassignment tools are available for transferring multiple employees between departments simultaneously.
+</Tip>
+
+## Department-Based Reporting
+
+Departments enable powerful workforce analytics:
+
+### Headcount Reports
+
+**Current snapshot:**
+- Total employees per department
+- Active vs. inactive employees
+- Full-time vs. part-time breakdown
+- Contractor vs. employee distribution
+
+**Historical trends:**
+- Headcount growth/decline over time
+- Month-over-month changes
+- Year-over-year comparisons
+
+### Payroll Cost Analysis
+
+**Department expenses:**
+- Total payroll cost per department
+- Average salary per employee
+- Cost per position within department
+- Overtime and bonus allocation
+
+**Budget tracking:**
+- Actual vs. budgeted costs
+- Variance analysis
+- Forecasting based on trends
+
+### Turnover Metrics
+
+**Retention analysis:**
+- Terminations per department
+- Average tenure by department
+- Turnover rate calculations
+- Exit reasons by department
+
+**Recruitment needs:**
+- Hiring velocity by department
+- Time-to-fill positions
+- Onboarding effectiveness
+
+### Position Distribution
+
+**Organizational composition:**
+- Positions per department
+- Span of control (supervisors to employees)
+- Role distribution
+- Skill gap analysis
+
+## Integration with External Systems
+
+The External ID field supports integration scenarios:
+
+### Cost Center Mapping
+
+Link departments to accounting cost centers:
+```json
+{
+  "nombre": "Engineering",
+  "idExterno": "CC-4100"
+}
+```
+
+Payroll costs automatically flow to the correct cost center in financial systems.
+
+### ERP Synchronization
+
+Maintain department references across systems:
+- Export department structure to ERP
+- Sync organizational changes
+- Validate employee assignments
+- Reconcile cost allocations
+
+### Reporting Tools
+
+Connect to business intelligence platforms:
+- Department dimension for analysis
+- Hierarchical rollups
+- Cross-system reporting
+- Consolidated dashboards
+
+<Accordion title="External system integration example">
+```bash
+# Sync departments from ERP
+GET /api/external-system/departments
+
+# Create or update in NewKipital
+POST /api/departments
+{
+  "nombre": "Operations",
+  "idExterno": "ERP-OPS-100"
+}
+```
+</Accordion>
+
+## Permissions and Access Control
+
+Department operations require employee management permissions:
+
+| Action | Required Permission |
+|--------|--------------------|
+| View departments | `employee:view` |
+| Create department | `employee:create` |
+| Update department | `employee:edit` |
+| Inactivate department | `employee:edit` |
+| View audit trail | `config:employees:audit` |
+
+<Info>
+  Departments are considered organizational catalogs within employee management, so they use employee permissions rather than separate department permissions.
+</Info>
+
+## Department Catalog API
+
+Retrieve active departments programmatically:
+
+```bash
+GET /api/catalogs/departments
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Human Resources",
+    "estado": 1
+  },
+  {
+    "id": 2,
+    "nombre": "Engineering",
+    "estado": 1
+  },
+  {
+    "id": 3,
+    "nombre": "Sales",
+    "estado": 1
+  }
+]
+```
+
+The catalog endpoint:
+- Returns only active departments
+- Ordered alphabetically by name
+- Includes minimal fields for performance
+- Used in dropdown population and filters
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Consistent Naming" icon="tags">
+    Use standard patterns for department names (e.g., all singular or all plural) for professional appearance in reports.
+  </Card>
+  
+  <Card title="Meaningful External IDs" icon="link">
+    Align external IDs with your accounting or ERP system's cost center codes for seamless integration.
+  </Card>
+  
+  <Card title="Regular Review" icon="calendar-check">
+    Audit department structure quarterly to ensure it reflects current organizational reality.
+  </Card>
+  
+  <Card title="Logical Grouping" icon="object-group">
+    Create departments that match your reporting and management structure, not just org chart boxes.
+  </Card>
+</CardGroup>
+
+## Common Department Structures
+
+### Functional Organization
+
+Group by business function:
+- Human Resources
+- Finance
+- Sales
+- Marketing
+- Engineering
+- Operations
+- Customer Support
+
+### Geographic Organization
+
+Group by location:
+- North America
+- Latin America
+- Europe
+- Asia Pacific
+- Headquarters
+- Remote Workers
+
+### Product Organization
+
+Group by product line:
+- Product A Team
+- Product B Team
+- Platform Engineering
+- Shared Services
+- Innovation Lab
+
+### Matrix Organization
+
+Combine multiple dimensions:
+- Engineering - Product A
+- Engineering - Product B
+- Sales - North Region
+- Sales - South Region
+- Support - Enterprise
+- Support - SMB
+
+<Tip>
+  Choose a department structure that aligns with your primary reporting and management needs. You can use positions and supervisor hierarchies to capture additional organizational dimensions.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot inactivate department">
+    Ensure no active employees are assigned to the department. Reassign employees to other departments first, then try inactivating again.
+  </Accordion>
+  
+  <Accordion title="Department not appearing in dropdown">
+    Verify the department status is active (estado = 1). Inactive departments are hidden from assignment dropdowns.
+  </Accordion>
+  
+  <Accordion title="External ID conflict">
+    External IDs must be unique if provided. Check for duplicate external IDs in the department list.
+  </Accordion>
+  
+  <Accordion title="Reports show incorrect department totals">
+    Clear your browser cache and refresh. If the issue persists, check if recent employee reassignments have been saved properly.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Define Positions" icon="briefcase" href="/features/positions">
+    Create job titles and roles to complement your department structure.
+  </Card>
+  
+  <Card title="Add Employees" icon="users" href="/features/employees">
+    Assign employees to departments during the onboarding process.
+  </Card>
+  
+  <Card title="Payroll by Department" icon="money-bill-wave" href="/payroll/overview">
+    Learn how department assignments affect payroll cost allocation.
+  </Card>
+  
+  <Card title="Organizational Reports" icon="chart-bar" href="/reports/organizational">
+    View detailed department-based workforce analytics and trends.
+  </Card>
+</CardGroup>

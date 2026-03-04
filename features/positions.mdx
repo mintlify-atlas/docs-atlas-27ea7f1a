@@ -1,0 +1,521 @@
+---
+title: Positions
+description: Define job titles and roles to standardize employee classifications, enable career progression tracking, and improve workforce planning
+---
+
+## Overview
+
+Positions (also called job titles or roles) in NewKipital define the various roles employees hold within your organization. Position assignments standardize job classifications, support compensation benchmarking, and enable career progression tracking across your workforce.
+
+<Info>
+  Positions are independent of departments. An employee has both a position (what they do) and a department (where they work).
+</Info>
+
+## Position Structure
+
+Each position contains:
+
+- **Position ID** — Unique system identifier
+- **Position Name** — Job title or role (max 100 characters)
+- **Description** — Detailed responsibilities and requirements
+- **Status** — Active (1) or inactive (0)
+- **Audit Fields** — Creation and modification tracking
+
+### Key Characteristics
+
+<CardGroup cols={2}>
+  <Card title="Organization-Wide" icon="globe">
+    Positions are defined once and reused across all departments. "Software Engineer" can exist in multiple departments.
+  </Card>
+  
+  <Card title="Single Assignment" icon="user">
+    Each employee is assigned to exactly one position at a time. Career progression involves changing positions.
+  </Card>
+  
+  <Card title="Descriptive Detail" icon="file-lines">
+    Position descriptions support detailed job requirements, skills, and responsibilities for HR and recruitment.
+  </Card>
+  
+  <Card title="Logical Deletion" icon="clock-rotate-left">
+    Positions are never physically deleted to preserve historical employment records and reporting accuracy.
+  </Card>
+</CardGroup>
+
+## Creating a Position
+
+<Steps>
+  <Step title="Navigate to Positions">
+    From the main menu, go to **Organization** → **Positions** → **Add Position**.
+    
+    Positions can also be created on-the-fly during employee onboarding if needed.
+  </Step>
+  
+  <Step title="Enter Position Details">
+    Provide the position information:
+    
+    - **Position Name** — Clear, standard job title (required, max 100 characters)
+    - **Description** — Detailed job responsibilities, requirements, and expectations (optional)
+    
+    <Tip>
+      Use industry-standard job titles when possible for better benchmarking and recruitment. Examples: "Senior Software Engineer", "Payroll Specialist", "HR Manager".
+    </Tip>
+  </Step>
+  
+  <Step title="Define Job Description">
+    In the description field, include:
+    
+    - Key responsibilities
+    - Required skills and qualifications
+    - Reporting relationships
+    - Career level indicators
+    - Compensation range or band (optional)
+    
+    This information supports recruitment, performance management, and career development.
+  </Step>
+  
+  <Step title="Save and Activate">
+    Click **Create Position**. The position is immediately active and available for employee assignment.
+  </Step>
+</Steps>
+
+### Example Position Creation
+
+```json
+{
+  "nombre": "Senior Software Engineer",
+  "descripcion": "Design, develop, and maintain complex software systems. Lead technical initiatives and mentor junior developers. Requirements: 5+ years experience, strong backend development skills, system architecture knowledge. Reports to Engineering Manager."
+}
+```
+
+## Managing Positions
+
+### Viewing Positions
+
+Access the position catalog from **Organization** → **Positions**.
+
+The list displays:
+- Position name
+- Employee count (how many assigned)
+- Status (active/inactive)
+- Creation and modification dates
+
+**List capabilities:**
+- Search by position name
+- Filter by status (active, inactive, all)
+- Sort alphabetically or by employee count
+- Export to CSV for analysis
+
+### Updating Position Information
+
+Modify existing positions:
+
+1. Select the position from the list
+2. Click **Edit Position**
+3. Update:
+   - Position name
+   - Description
+4. Click **Save Changes**
+
+<Warning>
+  Renaming a position affects all employee records, reports, and historical data. Consider creating a new position instead if the role has fundamentally changed.
+</Warning>
+
+### Viewing Position Details
+
+Click any position to see comprehensive information:
+
+**Overview Tab:**
+- Position name and description
+- Employee count
+- Status and audit trail
+
+**Employees Tab:**
+- Complete list of employees in this position
+- Sorted by department or name
+- Quick access to employee profiles
+- Bulk operations (export, reassign)
+
+**Analytics Tab:**
+- Average salary for position
+- Compensation range
+- Experience distribution
+- Department distribution
+- Tenure statistics
+
+**History Tab:**
+- Position modifications
+- Employee assignments over time
+- Career progression patterns
+
+## Position Status
+
+### Active Positions
+
+Active positions (estado = 1):
+- Appear in employee assignment dropdowns
+- Included in workforce reports
+- Available for new hires
+- Counted in position metrics
+
+### Inactivating a Position
+
+To disable a position that's no longer used:
+
+1. Navigate to the position profile
+2. Click **Actions** → **Inactivate Position**
+3. Confirm the action
+
+<Warning>
+  You cannot inactivate a position with active employee assignments. Reassign employees to other positions first.
+</Warning>
+
+**When to inactivate:**
+- Job role has been eliminated
+- Position merged with another role
+- Organizational restructuring
+- No longer hiring for this role
+
+**Effects of inactivation:**
+- Hidden from new assignment dropdowns
+- Excluded from active reports (visible with filter)
+- Historical assignments preserved
+- Can be reactivated if role returns
+
+### Reactivating a Position
+
+To restore an inactive position:
+
+1. Filter the position list to show **Inactive Positions**
+2. Select the position
+3. Click **Actions** → **Reactivate Position**
+4. Confirm the reactivation
+
+The position becomes immediately available for employee assignments.
+
+## Employee Assignment
+
+Assign employees to positions:
+
+### During Employee Creation
+
+When adding a new employee:
+1. Select position from the **Position** dropdown
+2. Position is saved with employee record
+3. Employee appears in position's employee list
+
+### Profile Updates (Promotions/Transfers)
+
+Change an employee's position:
+1. Open employee profile
+2. Click **Edit Employee**
+3. Select new position from dropdown
+4. Save changes
+
+**Position changes trigger:**
+- Career progression tracking
+- Compensation review workflows
+- Updated reporting hierarchies
+- Audit trail entries
+
+<Tip>
+  Use position changes to track career progression and promotions. The audit trail provides a complete history of role transitions.
+</Tip>
+
+## Position-Based Reporting
+
+Positions enable workforce analytics:
+
+### Headcount by Position
+
+**Current distribution:**
+- Employees per position
+- Active vs. vacant positions
+- Growth in specific roles
+- Position concentration by department
+
+**Historical analysis:**
+- Position growth over time
+- Hiring patterns
+- Elimination trends
+- Career path analysis
+
+### Compensation Analysis
+
+**Salary benchmarking:**
+- Average salary per position
+- Salary range (min, max, median)
+- Position cost as percentage of total payroll
+- Internal equity analysis
+
+**Market comparisons:**
+- Compare to industry standards
+- Identify over/under-compensated roles
+- Support compensation planning
+- Guide offer decisions
+
+### Career Progression
+
+**Advancement tracking:**
+- Promotion frequency by position
+- Time in position before advancement
+- Common career paths
+- Succession planning
+
+**Retention insights:**
+- Turnover by position
+- Exit reasons by role
+- Critical retention positions
+- Skills gap identification
+
+### Span of Control
+
+**Management analysis:**
+- Supervisory positions
+- Reports per manager
+- Management layers
+- Organizational efficiency
+
+## Position Descriptions
+
+Well-written position descriptions support multiple functions:
+
+### Recruitment
+
+**Job posting content:**
+- Clear role expectations
+- Required qualifications
+- Skill requirements
+- Career level indicators
+
+**Candidate evaluation:**
+- Standardized screening criteria
+- Interview guide development
+- Objective selection process
+
+### Performance Management
+
+**Goal setting:**
+- Role-specific objectives
+- Clear success criteria
+- Development opportunities
+- Performance standards
+
+**Evaluation:**
+- Competency assessment
+- Skills gap analysis
+- Career development planning
+
+### Compensation Planning
+
+**Salary decisions:**
+- Market rate research
+- Internal equity analysis
+- Pay grade assignment
+- Bonus eligibility
+
+**Description template:**
+```text
+Position Title: [Name]
+
+Purpose:
+[Brief statement of role's main objective]
+
+Key Responsibilities:
+- [Primary duty 1]
+- [Primary duty 2]
+- [Primary duty 3]
+
+Required Qualifications:
+- Education: [Degree requirements]
+- Experience: [Years and type]
+- Skills: [Technical and soft skills]
+
+Reporting Structure:
+- Reports to: [Position or department]
+- Supervises: [Positions or team size]
+
+Career Level: [Entry, Mid, Senior, Manager, etc.]
+
+Compensation Range: [Optional salary band]
+```
+
+## Positions Catalog API
+
+Retrieve active positions programmatically:
+
+```bash
+GET /api/catalogs/positions
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Software Engineer",
+    "estado": 1
+  },
+  {
+    "id": 2,
+    "nombre": "Senior Software Engineer",
+    "estado": 1
+  },
+  {
+    "id": 3,
+    "nombre": "HR Specialist",
+    "estado": 1
+  }
+]
+```
+
+The catalog endpoint:
+- Returns only active positions
+- Sorted alphabetically
+- Minimal fields for dropdown population
+- Cached for performance
+
+## Permissions and Access Control
+
+Position operations use employee management permissions:
+
+| Action | Required Permission |
+|--------|--------------------|
+| View positions | `employee:view` |
+| Create position | `employee:create` |
+| Update position | `employee:edit` |
+| Inactivate position | `employee:edit` |
+| View analytics | `employee:view` |
+| View compensation data | `employee:view-sensitive` |
+
+<Info>
+  Positions are organizational catalogs within employee management, so they share permissions with employee records.
+</Info>
+
+## Standard Position Hierarchies
+
+### Engineering
+
+**Individual contributors:**
+- Junior Software Engineer
+- Software Engineer
+- Senior Software Engineer
+- Staff Engineer
+- Principal Engineer
+
+**Management:**
+- Engineering Team Lead
+- Engineering Manager
+- Senior Engineering Manager
+- Director of Engineering
+- VP of Engineering
+
+### Human Resources
+
+**Generalist roles:**
+- HR Coordinator
+- HR Specialist
+- HR Business Partner
+- HR Manager
+- HR Director
+
+**Specialist roles:**
+- Recruiter
+- Payroll Specialist
+- Benefits Administrator
+- Training Coordinator
+- Compensation Analyst
+
+### Sales
+
+**Revenue roles:**
+- Sales Development Rep (SDR)
+- Account Executive
+- Senior Account Executive
+- Sales Manager
+- Regional Sales Director
+
+**Support roles:**
+- Sales Operations Specialist
+- Sales Engineer
+- Customer Success Manager
+- Account Manager
+
+### Operations
+
+**Operational roles:**
+- Operations Coordinator
+- Operations Specialist
+- Operations Manager
+- Director of Operations
+- COO
+
+**Functional roles:**
+- Facilities Manager
+- IT Support Specialist
+- Business Analyst
+- Project Manager
+- Program Manager
+
+<Tip>
+  Establish clear position hierarchies to support career ladders and progression planning. Use consistent level indicators (Junior, Mid, Senior, Staff, Principal) across different functions.
+</Tip>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Standard Nomenclature" icon="book">
+    Use industry-standard position names for easier benchmarking and external recruiting.
+  </Card>
+  
+  <Card title="Detailed Descriptions" icon="file-alt">
+    Write comprehensive position descriptions that serve multiple HR functions.
+  </Card>
+  
+  <Card title="Career Ladders" icon="stairs">
+    Define clear progression paths with distinct position levels.
+  </Card>
+  
+  <Card title="Regular Reviews" icon="calendar">
+    Audit position catalog annually to ensure it reflects current organizational needs.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot inactivate position">
+    Ensure no active employees are assigned to this position. Reassign employees first, then inactivate the position.
+  </Accordion>
+  
+  <Accordion title="Position not in dropdown">
+    Verify the position status is active (estado = 1). Inactive positions are hidden from assignment dropdowns.
+  </Accordion>
+  
+  <Accordion title="Duplicate position names">
+    Position names don't have to be unique in the database, but duplicates cause confusion. Use descriptive suffixes (e.g., "Manager - Sales" vs. "Manager - Engineering") to differentiate.
+  </Accordion>
+  
+  <Accordion title="Description formatting issues">
+    The description field stores plain text. Use line breaks for readability, but avoid complex formatting that may not display correctly.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Add Employees" icon="user-plus" href="/features/employees">
+    Assign positions to employees during onboarding or profile updates.
+  </Card>
+  
+  <Card title="Create Departments" icon="building" href="/features/departments">
+    Combine positions with departments for complete organizational structure.
+  </Card>
+  
+  <Card title="Compensation Planning" icon="coins" href="/payroll/overview">
+    Learn how positions affect salary structures and payroll processing.
+  </Card>
+  
+  <Card title="Career Development" icon="chart-line" href="/personal-actions/overview">
+    Track employee progression through position changes and performance actions.
+  </Card>
+</CardGroup>

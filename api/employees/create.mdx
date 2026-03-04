@@ -1,0 +1,319 @@
+---
+title: 'Create Employee'
+api: 'POST /employees'
+---
+
+Create a new employee record in the system. This endpoint supports creating employee access to Timewise and Kpital applications.
+
+## Authentication
+
+Requires permission: `employee:create`
+
+## Request Body
+
+### Identity Fields
+
+<ParamField body="idEmpresa" type="number" required>
+  Company ID the employee belongs to.
+</ParamField>
+
+<ParamField body="codigo" type="string" required>
+  Employee code (1-45 characters). Must be unique within the company.
+</ParamField>
+
+<ParamField body="cedula" type="string" required>
+  National ID number (up to 30 characters). Will be encrypted.
+</ParamField>
+
+<ParamField body="nombre" type="string" required>
+  First name (up to 100 characters). Will be encrypted.
+</ParamField>
+
+<ParamField body="apellido1" type="string" required>
+  First last name (up to 100 characters). Will be encrypted.
+</ParamField>
+
+<ParamField body="apellido2" type="string">
+  Second last name (up to 100 characters). Will be encrypted.
+</ParamField>
+
+### Personal Information
+
+<ParamField body="genero" type="string">
+  Gender. Options: `Masculino`, `Femenino`, `Otro`.
+</ParamField>
+
+<ParamField body="estadoCivil" type="string">
+  Marital status. Options: `Soltero`, `Casado`, `Divorciado`, `Viudo`, `Unión Libre`.
+</ParamField>
+
+<ParamField body="cantidadHijos" type="number" default={0}>
+  Number of children (minimum 0).
+</ParamField>
+
+<ParamField body="telefono" type="string">
+  Phone number (up to 30 characters). Will be encrypted.
+</ParamField>
+
+<ParamField body="direccion" type="string">
+  Home address. Will be encrypted.
+</ParamField>
+
+### Contact Information
+
+<ParamField body="email" type="string" required>
+  Email address (up to 150 characters). Must be unique across the system. Will be encrypted.
+</ParamField>
+
+### Organizational Relationships
+
+<ParamField body="idDepartamento" type="number">
+  Department ID. Use the [catalogs/departments](/api/employees/catalogs) endpoint to get available departments.
+</ParamField>
+
+<ParamField body="idPuesto" type="number">
+  Position/job title ID. Use the [catalogs/positions](/api/employees/catalogs) endpoint to get available positions.
+</ParamField>
+
+<ParamField body="idSupervisor" type="number">
+  Supervisor's employee ID. Must be an existing employee ID.
+</ParamField>
+
+### Contract and Payment
+
+<ParamField body="fechaIngreso" type="string" required>
+  Hire date in ISO 8601 format (YYYY-MM-DD).
+</ParamField>
+
+<ParamField body="tipoContrato" type="string">
+  Contract type. Options: `Indefinido`, `Plazo Fijo`, `Por Servicios Profesionales`.
+</ParamField>
+
+<ParamField body="jornada" type="string">
+  Work schedule. Options: `Tiempo Completo`, `Medio Tiempo`, `Por Horas`.
+</ParamField>
+
+<ParamField body="idPeriodoPago" type="number">
+  Pay period ID. Use the [catalogs/pay-periods](/api/employees/catalogs) endpoint to get available pay periods.
+</ParamField>
+
+<ParamField body="salarioBase" type="number">
+  Base salary amount. Will be encrypted.
+</ParamField>
+
+<ParamField body="monedaSalario" type="string" default="CRC">
+  Salary currency. Options: `CRC`, `USD`.
+</ParamField>
+
+<ParamField body="numeroCcss" type="string">
+  Social security number (4-30 characters). Will be encrypted.
+</ParamField>
+
+<ParamField body="cuentaBanco" type="string">
+  Bank account number (up to 50 characters). Will be encrypted.
+</ParamField>
+
+### Accumulated Benefits
+
+<ParamField body="vacacionesAcumuladas" type="string">
+  Accumulated vacation days (integer as string). Example: "15". Will be encrypted.
+</ParamField>
+
+<ParamField body="cesantiaAcumulada" type="string">
+  Accumulated severance (decimal as string). Example: "500000.50". Will be encrypted.
+</ParamField>
+
+<ParamField body="provisionesAguinaldo" type="array">
+  Array of aguinaldo (Christmas bonus) provisions. Each provision should have `anio` (year) and `monto` (amount) fields.
+  
+  <Expandable title="Aguinaldo Provision Object">
+    <ParamField body="anio" type="number" required>
+      Year for the provision.
+    </ParamField>
+    
+    <ParamField body="monto" type="string" required>
+      Provision amount (decimal as string).
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Digital Access Flags
+
+These flags control whether the workflow creates user accounts and assigns applications. They are not stored in the employee record.
+
+<ParamField body="crearAccesoTimewise" type="boolean" default={false}>
+  Create user access for Timewise application.
+</ParamField>
+
+<ParamField body="crearAccesoKpital" type="boolean" default={false}>
+  Create user access for Kpital application.
+</ParamField>
+
+<ParamField body="idRolTimewise" type="number">
+  Role ID for Timewise access. Required if `crearAccesoTimewise` is true.
+</ParamField>
+
+<ParamField body="idRolKpital" type="number">
+  Role ID for Kpital access. Required if `crearAccesoKpital` is true.
+</ParamField>
+
+<ParamField body="passwordInicial" type="string">
+  Initial password for user accounts (up to 100 characters). Required if creating access to any application.
+</ParamField>
+
+## Response
+
+Returns the created employee object with all fields including the generated `id` and encryption metadata.
+
+<ResponseField name="id" type="number">
+  Unique employee identifier.
+</ResponseField>
+
+<ResponseField name="idUsuario" type="number" optional>
+  Associated user ID if digital access was created.
+</ResponseField>
+
+<ResponseField name="datosEncriptados" type="number">
+  Encryption flag. `1` if data is encrypted, `0` otherwise.
+</ResponseField>
+
+<ResponseField name="versionEncriptacion" type="string" optional>
+  Encryption version used (e.g., "v1").
+</ResponseField>
+
+<ResponseField name="fechaEncriptacion" type="string" optional>
+  Timestamp when data was encrypted in ISO 8601 format.
+</ResponseField>
+
+<ResponseField name="fechaCreacion" type="string">
+  Creation timestamp in ISO 8601 format.
+</ResponseField>
+
+<ResponseField name="creadoPor" type="number">
+  User ID who created the employee.
+</ResponseField>
+
+All other fields match the request body structure.
+
+## Example Request
+
+```bash
+curl -X POST "https://api.newkipital.com/employees" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idEmpresa": 1,
+    "codigo": "EMP-001",
+    "cedula": "1-2345-6789",
+    "nombre": "Juan",
+    "apellido1": "Pérez",
+    "apellido2": "Gómez",
+    "email": "juan.perez@company.com",
+    "genero": "Masculino",
+    "estadoCivil": "Casado",
+    "cantidadHijos": 2,
+    "telefono": "8888-8888",
+    "direccion": "San José, Costa Rica",
+    "idDepartamento": 1,
+    "idPuesto": 5,
+    "idSupervisor": 10,
+    "fechaIngreso": "2026-03-01",
+    "tipoContrato": "Indefinido",
+    "jornada": "Tiempo Completo",
+    "idPeriodoPago": 1,
+    "salarioBase": 2500000,
+    "monedaSalario": "CRC",
+    "numeroCcss": "12345678901",
+    "cuentaBanco": "CR12345678901234567890",
+    "vacacionesAcumuladas": "0",
+    "cesantiaAcumulada": "0",
+    "crearAccesoTimewise": true,
+    "idRolTimewise": 2,
+    "passwordInicial": "TempPass123!"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "id": 1,
+  "idEmpresa": 1,
+  "codigo": "EMP-001",
+  "cedula": "1-2345-6789",
+  "nombre": "Juan",
+  "apellido1": "Pérez",
+  "apellido2": "Gómez",
+  "email": "juan.perez@company.com",
+  "genero": "Masculino",
+  "estadoCivil": "Casado",
+  "cantidadHijos": 2,
+  "telefono": "8888-8888",
+  "direccion": "San José, Costa Rica",
+  "idDepartamento": 1,
+  "idPuesto": 5,
+  "idSupervisor": 10,
+  "fechaIngreso": "2026-03-01",
+  "fechaSalida": null,
+  "motivoSalida": null,
+  "tipoContrato": "Indefinido",
+  "jornada": "Tiempo Completo",
+  "idPeriodoPago": 1,
+  "salarioBase": "2500000",
+  "monedaSalario": "CRC",
+  "numeroCcss": "12345678901",
+  "cuentaBanco": "CR12345678901234567890",
+  "vacacionesAcumuladas": "0",
+  "cesantiaAcumulada": "0",
+  "idUsuario": 42,
+  "estado": 1,
+  "fechaCreacion": "2026-03-04T18:00:00Z",
+  "fechaModificacion": "2026-03-04T18:00:00Z",
+  "creadoPor": 1,
+  "modificadoPor": 1,
+  "datosEncriptados": 1,
+  "versionEncriptacion": "v1",
+  "fechaEncriptacion": "2026-03-04T18:00:05Z"
+}
+```
+
+## Error Responses
+
+### Duplicate Email
+```json
+{
+  "statusCode": 409,
+  "message": "Email already exists",
+  "error": "Conflict"
+}
+```
+
+### Validation Error
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "nombre must be shorter than or equal to 100 characters",
+    "email must be an email"
+  ],
+  "error": "Bad Request"
+}
+```
+
+### Missing Required Permission
+```json
+{
+  "statusCode": 403,
+  "message": "Insufficient permissions",
+  "error": "Forbidden"
+}
+```
+
+## Notes
+
+- Sensitive fields are automatically encrypted after creation
+- The `idUsuario` field is managed by the employee creation workflow and is not included in the request DTO
+- Email and cedula must be unique across the entire system
+- The employee code must be unique within the company
+- If creating digital access, the workflow will create a user record and assign the specified roles
+- Aguinaldo provisions are typically used for mid-year employee transfers to track previous employer contributions

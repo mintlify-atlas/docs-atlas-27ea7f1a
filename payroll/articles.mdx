@@ -1,0 +1,341 @@
+---
+title: 'Payroll Articles'
+description: 'Define salary components, benefits, and deductions used in payroll processing'
+---
+
+## Overview
+
+Payroll Articles (Artículos de Nómina) are the fundamental building blocks of payroll calculation. They define the individual components that make up an employee's paycheck, such as base salary, bonuses, overtime, insurance deductions, and taxes.
+
+Each article links a **concept** (what is being paid/deducted) with **accounting information** (which accounts to debit/credit).
+
+## Core Concepts
+
+<CardGroup cols={2}>
+  <Card title="Salary Components" icon="money-bill-wave">
+    Base pay, overtime, bonuses, commissions
+  </Card>
+  <Card title="Deductions" icon="minus-circle">
+    Taxes, insurance, loan payments, garnishments
+  </Card>
+  <Card title="Accounting Integration" icon="calculator">
+    Links to expense and liability accounts
+  </Card>
+  <Card title="Company-Specific" icon="building">
+    Each company defines its own article catalog
+  </Card>
+</CardGroup>
+
+## Entity Structure
+
+### PayrollArticle
+
+```typescript
+interface PayrollArticle {
+  id: number;
+  idEmpresa: number;              // Company ID
+  nombre: string;                 // Article name (e.g., "Base Salary")
+  descripcion: string;            // Description
+  
+  // Concept linkage
+  idTipoAccionPersonal: number;   // Personal action type (concept)
+  idTipoArticuloNomina: number;   // Article type (income/deduction)
+  
+  // Accounting linkage
+  idCuentaGasto: number;          // Expense account
+  idCuentaPasivo: number;         // Liability account (optional)
+  
+  esInactivo: number;             // Inactive flag
+  fechaCreacion: Date;
+  fechaModificacion: Date;
+}
+```
+
+### PayrollArticleType
+
+Articles are categorized by type:
+
+```typescript
+interface PayrollArticleType {
+  id: number;
+  nombre: string;                  // Type name
+  descripcion: string;             // Description
+  esInactivo: number;
+}
+```
+
+**Common Article Types:**
+- **Ingresos** (Income): Salary, bonuses, overtime
+- **Deducciones** (Deductions): Taxes, insurance, loans
+- **Aportes Patronales** (Employer Contributions): Social security, CCSS
+- **Provisiones** (Provisions): Vacation accrual, aguinaldo accrual
+
+## Creating Payroll Articles
+
+### API Endpoint
+
+```http
+POST /api/payroll-articles
+Content-Type: application/json
+```
+
+### Request Body
+
+```typescript
+interface CreatePayrollArticleDto {
+  idEmpresa: number;              // Required: Company ID (min: 1)
+  nombre: string;                 // Required: Article name (max: 200 chars)
+  descripcion?: string;           // Optional: Description (max: 2000 chars)
+  idTipoAccionPersonal: number;   // Required: Action type ID (min: 1)
+  idTipoArticuloNomina: number;   // Required: Article type ID (min: 1)
+  idCuentaGasto: number;          // Required: Expense account ID (min: 1)
+  idCuentaPasivo?: number;        // Optional: Liability account ID (min: 1)
+}
+```
+
+### Example: Base Salary Article
+
+```json
+{
+  "idEmpresa": 42,
+  "nombre": "Salario Base",
+  "descripcion": "Salario base mensual del empleado",
+  "idTipoAccionPersonal": 1,
+  "idTipoArticuloNomina": 1,
+  "idCuentaGasto": 100,
+  "idCuentaPasivo": 200
+}
+```
+
+### Example: Health Insurance Deduction
+
+```json
+{
+  "idEmpresa": 42,
+  "nombre": "Seguro de Salud",
+  "descripcion": "Deducción mensual para seguro médico privado",
+  "idTipoAccionPersonal": 15,
+  "idTipoArticuloNomina": 2,
+  "idCuentaGasto": 110,
+  "idCuentaPasivo": 210
+}
+```
+
+<Info>
+The `idCuentaPasivo` is optional but recommended for deductions. It represents the liability account where withheld amounts are held before being remitted to the third party (e.g., insurance company, tax authority).
+</Info>
+
+## Updating Articles
+
+### API Endpoint
+
+```http
+PATCH /api/payroll-articles/:id
+Content-Type: application/json
+```
+
+### Request Body
+
+All fields are optional:
+
+```typescript
+interface UpdatePayrollArticleDto {
+  nombre?: string;
+  descripcion?: string;
+  idTipoAccionPersonal?: number;
+  idTipoArticuloNomina?: number;
+  idCuentaGasto?: number;
+  idCuentaPasivo?: number;
+}
+```
+
+### Example: Update Description
+
+```json
+{
+  "descripcion": "Salario base mensual, incluye componente fijo"
+}
+```
+
+## Querying Articles
+
+### List All Articles for a Company
+
+```http
+GET /api/payroll-articles?idEmpresa=42
+```
+
+### Filter Options
+
+- `idEmpresa`: Filter by company (required)
+- `includeInactive=true`: Include inactive articles
+- `idTipoArticuloNomina`: Filter by article type
+
+### Example Response
+
+```json
+[
+  {
+    "id": 1,
+    "idEmpresa": 42,
+    "nombre": "Salario Base",
+    "descripcion": "Salario base mensual del empleado",
+    "idTipoAccionPersonal": 1,
+    "idTipoArticuloNomina": 1,
+    "idCuentaGasto": 100,
+    "idCuentaPasivo": 200,
+    "esInactivo": 0,
+    "fechaCreacion": "2026-01-01T00:00:00.000Z",
+    "fechaModificacion": "2026-01-15T10:30:00.000Z"
+  },
+  {
+    "id": 2,
+    "nombre": "Horas Extra 1.5x",
+    "descripcion": "Tiempo extra con recargo de 1.5x",
+    "idTipoAccionPersonal": 5,
+    "idTipoArticuloNomina": 1,
+    "idCuentaGasto": 101,
+    "idCuentaPasivo": null,
+    "esInactivo": 0
+  }
+]
+```
+
+## Deactivating Articles
+
+<Warning>
+Articles should be **deactivated** rather than deleted to preserve historical payroll data integrity.
+</Warning>
+
+```http
+PATCH /api/payroll-articles/:id
+Content-Type: application/json
+
+{
+  "esInactivo": 1
+}
+```
+
+Inactive articles:
+- Will not appear in default article lists
+- Cannot be used in new HR actions or movements
+- Remain visible in historical payroll reports
+
+## Article Lifecycle
+
+<Steps>
+  <Step title="Define Concept">
+    Identify what needs to be paid or deducted (e.g., "Overtime 2x", "Meal Allowance")
+  </Step>
+  
+  <Step title="Create Article">
+    Link the concept to an article type and accounting accounts
+  </Step>
+  
+  <Step title="Use in HR Actions">
+    HR personnel create personal actions using this article (e.g., approve overtime)
+  </Step>
+  
+  <Step title="Payroll Processing">
+    During payroll processing, approved actions are collected and amounts calculated
+  </Step>
+  
+  <Step title="Accounting Integration">
+    Results are posted to the configured expense and liability accounts
+  </Step>
+</Steps>
+
+## Accounting Integration
+
+### Double-Entry Bookkeeping
+
+Each payroll article generates accounting entries:
+
+**Income Article (e.g., Salary):**
+```
+Debit:  Salary Expense Account (idCuentaGasto)
+Credit: Salary Payable Account (idCuentaPasivo)
+```
+
+**Deduction Article (e.g., Tax Withholding):**
+```
+Debit:  Salary Payable Account
+Credit: Tax Withholding Liability (idCuentaPasivo)
+```
+
+<Info>
+The `idCuentaGasto` is always required. The `idCuentaPasivo` is typically used for items that create a liability (deductions, employer contributions).
+</Info>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Naming Conventions" icon="tag">
+    Use clear, consistent names:
+    - **Good**: "Base Salary", "Overtime 1.5x", "CCSS Deduction"
+    - **Bad**: "Salary", "OT", "Deduction 1"
+    
+    Include multipliers or rates in the name for clarity.
+  </Accordion>
+  
+  <Accordion title="One Article per Concept" icon="sitemap">
+    Don't create multiple articles for the same concept with different rates. Instead, use the rate as a parameter in the personal action or movement.
+    
+    **Example**: One "Overtime" article, with the multiplier (1.5x, 2x) specified in the action.
+  </Accordion>
+  
+  <Accordion title="Account Mapping" icon="link">
+    Work with your accounting team to ensure correct account mappings:
+    - Different expense accounts for different departments
+    - Proper liability accounts for withholdings
+    - Compliance with local accounting standards (NIIF, GAAP, etc.)
+  </Accordion>
+  
+  <Accordion title="Deactivate, Don't Delete" icon="eye-slash">
+    Always deactivate articles rather than deleting them. This preserves:
+    - Historical payroll data
+    - Audit trails
+    - Regulatory compliance records
+  </Accordion>
+</AccordionGroup>
+
+## Common Article Examples
+
+### Income Articles
+
+| Article Name | Description | Type |
+|-------------|-------------|------|
+| Salario Base | Base monthly salary | Ingreso |
+| Horas Extra 1.5x | Overtime at 1.5x rate | Ingreso |
+| Horas Extra 2x | Overtime at 2x rate (Sunday/holiday) | Ingreso |
+| Bono de Desempeño | Performance bonus | Ingreso |
+| Comisión de Ventas | Sales commission | Ingreso |
+| Subsidio de Transporte | Transportation allowance | Ingreso |
+
+### Deduction Articles
+
+| Article Name | Description | Type |
+|-------------|-------------|------|
+| CCSS Empleado | Social security employee contribution | Deducción |
+| Impuesto sobre la Renta | Income tax withholding | Deducción |
+| Seguro de Salud | Health insurance premium | Deducción |
+| Préstamo Personal | Personal loan repayment | Deducción |
+| Pensión Alimentaria | Child support garnishment | Deducción |
+
+### Employer Contribution Articles
+
+| Article Name | Description | Type |
+|-------------|-------------|------|
+| CCSS Patronal | Social security employer contribution | Aporte Patronal |
+| INS Riesgos de Trabajo | Work risk insurance | Aporte Patronal |
+| Fondo de Capitalización Laboral | Labor capitalization fund | Aporte Patronal |
+
+## Related Resources
+
+<Card title="Payroll Movements" icon="arrows-rotate" href="/payroll/movements">
+  Learn how to create manual adjustments using payroll articles
+</Card>
+
+<Card title="Personal Actions" icon="user-check" href="/personal-actions">
+  See how HR actions use payroll articles
+</Card>

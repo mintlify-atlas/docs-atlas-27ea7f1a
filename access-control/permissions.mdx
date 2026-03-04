@@ -1,0 +1,691 @@
+---
+title: Permission Management
+description: Define and manage atomic permissions in NewKipital
+---
+
+Permissions are the most granular level of access control in NewKipital. They represent specific actions users can perform in the system.
+
+## Permission Format
+
+Permissions follow a hierarchical naming convention:
+
+```text
+module:action[:subaction]
+```
+
+<ParamField path="module" type="string" required>
+  The system module (must match the prefix of the permission code)
+</ParamField>
+
+<ParamField path="action" type="string" required>
+  The specific action within the module
+</ParamField>
+
+<ParamField path="subaction" type="string">
+  Optional sub-action for more granular control
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```text Configuration
+config:roles
+config:permissions
+config:users
+config:companies
+```
+
+```text Payroll
+payroll:view
+payroll:edit
+payroll:approve
+payroll:process
+payroll:reports
+```
+
+```text Employees
+employees:list
+employees:view
+employees:create
+employees:edit
+employees:delete
+```
+
+```text Time Tracking
+timesheets:own:view
+timesheets:own:edit
+timesheets:team:view
+timesheets:approve
+```
+</CodeGroup>
+
+## Permission Catalog Mode
+
+The system supports two modes for managing the permission catalog:
+
+<Tabs>
+  <Tab title="Migration Mode (Default)">
+    ```env
+    PERMISSIONS_CATALOG_MODE=migration
+    ```
+    
+    **Characteristics:**
+    - Permissions are managed through database migrations
+    - UI endpoints for creating/editing permissions are disabled
+    - Ensures permissions match code expectations
+    - **Recommended for production**
+    
+    <Warning>
+      In migration mode, API calls to create/update permissions will fail with:
+      ```json
+      {
+        "statusCode": 403,
+        "message": "Catalogo de permisos en modo controlado por migracion; alta/edicion inhabilitada"
+      }
+      ```
+    </Warning>
+  </Tab>
+  
+  <Tab title="UI Mode">
+    ```env
+    PERMISSIONS_CATALOG_MODE=ui
+    ```
+    
+    **Characteristics:**
+    - Permissions can be created/edited through the API
+    - Useful for development and testing
+    - Allows dynamic permission management
+    - **Not recommended for production**
+  </Tab>
+</Tabs>
+
+Check the current mode:
+
+```bash
+curl -X GET https://api.newkipital.com/permissions/mode \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Response:
+```json
+{
+  "mode": "migration"
+}
+```
+
+## Creating Permissions
+
+<Info>
+  Only available when `PERMISSIONS_CATALOG_MODE=ui`
+</Info>
+
+### API Endpoint
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.newkipital.com/permissions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "codigo": "payroll:approve",
+    "nombre": "Approve Payroll",
+    "descripcion": "Ability to approve payroll runs",
+    "modulo": "payroll"
+  }'
+```
+
+```typescript TypeScript SDK
+import { PermissionsService } from '@newkipital/sdk';
+
+const permission = await permissionsService.create({
+  codigo: 'payroll:approve',
+  nombre: 'Approve Payroll',
+  descripcion: 'Ability to approve payroll runs',
+  modulo: 'payroll'
+}, currentUserId);
+```
+</CodeGroup>
+
+### Request Schema
+
+```typescript Source: create-permission.dto.ts:10
+export class CreatePermissionDto {
+  codigo: string;        // Format: module:action[:subaction]
+  nombre: string;        // Display name (max 150 chars)
+  descripcion?: string;  // Optional description (max 300 chars)
+  modulo: string;        // Module name (must match codigo prefix)
+}
+```
+
+<ParamField path="codigo" type="string" required>
+  Permission code in format `module:action[:subaction]` (3-100 characters, lowercase).
+  
+  Must match regex: `/^[a-z][a-z0-9-_]*(?::[a-z][a-z0-9-_]*)+$/`
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Human-readable permission name (max 150 characters).
+</ParamField>
+
+<ParamField path="descripcion" type="string">
+  Optional description explaining what this permission grants (max 300 characters).
+</ParamField>
+
+<ParamField path="modulo" type="string" required>
+  Module name (max 50 characters). **Must match the prefix of `codigo`**.
+</ParamField>
+
+### Validation Rules
+
+<AccordionGroup>
+  <Accordion title="Code Format Validation">
+    The permission code must:
+    - Start with a lowercase letter
+    - Contain at least one colon (`:`)
+    - Use only lowercase letters, numbers, hyphens, and underscores
+    - Not have consecutive colons
+    
+    ```typescript Source: create-permission.dto.ts:17
+    @Matches(/^[a-z][a-z0-9-_]*(?::[a-z][a-z0-9-_]*)+$/, {
+      message:
+        'codigo debe cumplir formato module:action[:subaction] en minusculas',
+    })
+    ```
+    
+    ✅ Valid: `payroll:approve`, `employees:own:view`, `config:roles`
+    
+    ❌ Invalid: `Payroll:Approve`, `payroll`, `payroll::approve`
+  </Accordion>
+  
+  <Accordion title="Module Prefix Match">
+    The `modulo` field must match the prefix (before first `:`) of the `codigo`:
+    
+    ```typescript Source: permissions.service.ts:43
+    const moduloFromCode = this.extractModule(codigo); // Gets prefix before ':'
+    const modulo = dto.modulo.toLowerCase();
+
+    if (moduloFromCode !== modulo) {
+      throw new ConflictException(
+        'modulo debe coincidir con el prefijo del codigo',
+      );
+    }
+    ```
+    
+    **Example:**
+    - `codigo`: `payroll:approve` → `modulo` must be `payroll`
+    - `codigo`: `employees:list` → `modulo` must be `employees`
+  </Accordion>
+  
+  <Accordion title="Unique Code Constraint">
+    Permission codes must be globally unique. Duplicate codes will result in:
+    
+    ```json
+    {
+      "statusCode": 409,
+      "message": "Ya existe un permiso con ese codigo"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Required Permission
+
+```text
+config:permissions
+```
+
+## Listing Permissions
+
+Retrieve all permissions, optionally filtered by module:
+
+<CodeGroup>
+```bash All Permissions
+curl -X GET "https://api.newkipital.com/permissions" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```bash Filter by Module
+curl -X GET "https://api.newkipital.com/permissions?modulo=payroll" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```bash Active Only
+curl -X GET "https://api.newkipital.com/permissions?includeInactive=false" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="modulo" type="string">
+  Filter by module name (e.g., `payroll`, `employees`, `config`).
+</ParamField>
+
+<ParamField query="includeInactive" type="boolean" default={true}>
+  Include inactive permissions in the response.
+</ParamField>
+
+### Response Format
+
+```json
+[
+  {
+    "id": 42,
+    "codigo": "payroll:approve",
+    "nombre": "Approve Payroll",
+    "descripcion": "Ability to approve payroll runs",
+    "modulo": "payroll",
+    "estado": 1,
+    "fechaCreacion": "2025-01-15T10:30:00Z",
+    "fechaModificacion": "2025-01-15T10:30:00Z",
+    "creadoPor": 1,
+    "modificadoPor": 1
+  }
+]
+```
+
+**Required Permission:** `config:roles`
+
+## Updating Permissions
+
+<Info>
+  Only available when `PERMISSIONS_CATALOG_MODE=ui`
+</Info>
+
+Update permission metadata (name, description, or even code):
+
+```bash Source: permissions.service.ts:119
+curl -X PUT https://api.newkipital.com/permissions/42 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "nombre": "Approve Payroll Runs",
+    "descripcion": "Approve and finalize payroll runs for processing"
+  }'
+```
+
+<Warning>
+  Changing the permission code is possible but **dangerous**. It may break existing guards in the codebase that reference the old code.
+</Warning>
+
+**Required Permission:** `config:permissions`
+
+## Permission Lifecycle
+
+### Inactivate Permission
+
+Soft-delete a permission (sets `estado = 0`):
+
+```bash Source: permissions.service.ts:177
+curl -X PATCH https://api.newkipital.com/permissions/42/inactivate \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+<Warning>
+  Inactivating a permission:
+  - Removes it from all role permission lists
+  - Users with roles containing this permission will lose access immediately
+  - Global permission version is bumped
+  - Cannot be used in new assignments
+</Warning>
+
+**Required Permission:** `config:permissions`
+
+### Reactivate Permission
+
+Restore an inactive permission:
+
+```bash Source: permissions.service.ts:201
+curl -X PATCH https://api.newkipital.com/permissions/42/reactivate \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Required Permission:** `config:permissions`
+
+## Permission Organization
+
+### By Module
+
+Organize permissions by functional area:
+
+<Tabs>
+  <Tab title="config">
+    System configuration and administration:
+    
+    ```text
+    config:roles
+    config:permissions
+    config:users
+    config:companies
+    config:apps
+    ```
+  </Tab>
+  
+  <Tab title="payroll">
+    Payroll management:
+    
+    ```text
+    payroll:view
+    payroll:edit
+    payroll:create
+    payroll:approve
+    payroll:process
+    payroll:reports
+    payroll:history
+    ```
+  </Tab>
+  
+  <Tab title="employees">
+    Employee management:
+    
+    ```text
+    employees:list
+    employees:view
+    employees:create
+    employees:edit
+    employees:delete
+    employees:import
+    employees:export
+    ```
+  </Tab>
+  
+  <Tab title="timesheets">
+    Time tracking:
+    
+    ```text
+    timesheets:own:view
+    timesheets:own:edit
+    timesheets:team:view
+    timesheets:all:view
+    timesheets:approve
+    timesheets:reject
+    ```
+  </Tab>
+  
+  <Tab title="reports">
+    Reporting:
+    
+    ```text
+    reports:financial
+    reports:hr
+    reports:payroll
+    reports:attendance
+    reports:export
+    ```
+  </Tab>
+</Tabs>
+
+### By Access Level
+
+Commonly used patterns:
+
+<CardGroup cols={2}>
+  <Card title="View Permissions" icon="eye">
+    ```text
+    module:view
+    module:list
+    module:own:view
+    ```
+    
+    Read-only access to data
+  </Card>
+  
+  <Card title="Edit Permissions" icon="pen">
+    ```text
+    module:edit
+    module:update
+    module:own:edit
+    ```
+    
+    Modify existing records
+  </Card>
+  
+  <Card title="Create Permissions" icon="plus">
+    ```text
+    module:create
+    module:add
+    module:new
+    ```
+    
+    Create new records
+  </Card>
+  
+  <Card title="Delete Permissions" icon="trash">
+    ```text
+    module:delete
+    module:remove
+    module:archive
+    ```
+    
+    Delete or archive records
+  </Card>
+  
+  <Card title="Approval Permissions" icon="check">
+    ```text
+    module:approve
+    module:reject
+    module:review
+    ```
+    
+    Workflow approval actions
+  </Card>
+  
+  <Card title="Export Permissions" icon="download">
+    ```text
+    module:export
+    reports:module
+    module:download
+    ```
+    
+    Data export capabilities
+  </Card>
+</CardGroup>
+
+## Using Permissions in Code
+
+### Controller Guards
+
+Protect endpoints with the `@RequirePermissions` decorator:
+
+```typescript Source: roles.controller.ts:33
+import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+
+@Controller('roles')
+export class RolesController {
+  @RequirePermissions('config:roles')
+  @Post()
+  create(@Body() dto: CreateRoleDto, @CurrentUser() user: { userId: number }) {
+    return this.service.create(dto, user.userId);
+  }
+
+  @RequirePermissions('config:permissions')
+  @Post(':id/permissions')
+  assignPermission(
+    @Param('id', ParseIntPipe) idRol: number,
+    @Body() dto: AssignRolePermissionDto,
+  ) {
+    return this.service.assignPermission({ ...dto, idRol });
+  }
+}
+```
+
+### Multiple Permissions
+
+Require multiple permissions (AND logic):
+
+```typescript
+@RequirePermissions('payroll:view', 'payroll:approve')
+@Post('approve')
+approvePayroll(@Body() dto: ApprovePayrollDto) {
+  // User must have BOTH permissions
+}
+```
+
+### Permission Checking in Services
+
+For complex business logic:
+
+```typescript
+import { AuthzService } from '../authz/authz.service';
+
+export class PayrollService {
+  constructor(private readonly authz: AuthzService) {}
+
+  async processPayroll(userId: number, companyId: number, appCode: string) {
+    const hasPermission = await this.authz.userHasPermission(
+      userId,
+      companyId,
+      appCode,
+      'payroll:process'
+    );
+
+    if (!hasPermission) {
+      throw new ForbiddenException('Missing permission: payroll:process');
+    }
+
+    // Process payroll...
+  }
+}
+```
+
+## Real-Time Updates
+
+When permissions are created, updated, or inactivated:
+
+```typescript Source: permissions.service.ts:67
+await this.authzVersionService.bumpGlobal();
+```
+
+This:
+1. Increments the global permission version
+2. Invalidates all cached permission sets
+3. Forces re-evaluation on next permission check
+
+<Info>
+  Unlike role changes (which notify specific users), permission catalog changes bump the **global** version, affecting all users.
+</Info>
+
+## Permission Storage
+
+Permissions are stored in the `sys_permisos` table:
+
+```typescript Source: permission.entity.ts:15
+@Entity('sys_permisos')
+export class Permission {
+  @PrimaryGeneratedColumn({ name: 'id_permiso' })
+  id: number;
+
+  @Column({ name: 'codigo_permiso', type: 'varchar', unique: true })
+  codigo: string;  // e.g., "payroll:approve"
+
+  @Column({ name: 'nombre_permiso' })
+  nombre: string;  // e.g., "Approve Payroll"
+
+  @Column({ name: 'descripcion_permiso', nullable: true })
+  descripcion: string | null;
+
+  @Column({ name: 'modulo_permiso' })
+  modulo: string;  // e.g., "payroll"
+
+  @Column({ name: 'estado_permiso', default: 1 })
+  estado: number;  // 1 = active, 0 = inactive
+
+  // Audit fields
+  @CreateDateColumn({ name: 'fecha_creacion_permiso' })
+  fechaCreacion: Date;
+
+  @UpdateDateColumn({ name: 'fecha_modificacion_permiso' })
+  fechaModificacion: Date | null;
+
+  @Column({ name: 'creado_por_permiso', nullable: true })
+  creadoPor: number | null;
+
+  @Column({ name: 'modificado_por_permiso', nullable: true })
+  modificadoPor: number | null;
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Naming Convention" icon="signature">
+    - Use lowercase with colons as separators
+    - Start with module name
+    - Be specific: `payroll:approve` not `payroll:manage`
+    - Use verbs: `view`, `edit`, `create`, `delete`, `approve`
+  </Card>
+  
+  <Card title="Granularity" icon="cubes">
+    - Create atomic permissions for each action
+    - Don't combine unrelated actions
+    - Use sub-actions for scoping: `timesheets:own:view`
+    - Balance granularity with management overhead
+  </Card>
+  
+  <Card title="Module Organization" icon="folder-tree">
+    - Group related permissions by module
+    - Keep module names consistent across codebase
+    - Document module structure
+    - Use sub-modules for large areas: `reports:financial`
+  </Card>
+  
+  <Card title="Catalog Management" icon="book">
+    - Use migration mode in production
+    - Version control permission definitions
+    - Review permissions during code review
+    - Audit unused permissions regularly
+  </Card>
+</CardGroup>
+
+## Common Permission Patterns
+
+### CRUD Permissions
+
+```text
+module:list    // List all items
+module:view    // View single item
+module:create  // Create new item
+module:edit    // Update existing item
+module:delete  // Delete item
+```
+
+### Scoped Permissions
+
+```text
+module:own:view      // View own data only
+module:team:view     // View team data
+module:company:view  // View company-wide data
+module:all:view      // View all data across companies
+```
+
+### Workflow Permissions
+
+```text
+module:submit   // Submit for approval
+module:review   // Review submission
+module:approve  // Approve submission
+module:reject   // Reject submission
+module:reopen   // Reopen closed item
+```
+
+### Admin Permissions
+
+```text
+config:module         // Configure module
+config:users          // Manage users
+config:roles          // Manage roles
+config:permissions    // Manage permissions
+config:companies      // Manage companies
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Assign to Roles" icon="users-gear" href="/access-control/roles">
+    Add permissions to roles
+  </Card>
+  
+  <Card title="User Assignment" icon="user-plus" href="/access-control/user-assignment">
+    Grant permissions to users
+  </Card>
+</CardGroup>

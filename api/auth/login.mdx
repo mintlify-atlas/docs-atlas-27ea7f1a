@@ -1,0 +1,187 @@
+---
+title: "Login"
+api: "POST /api/auth/login"
+description: "Authenticate with email and password credentials"
+---
+
+Authenticates a user with email and password credentials. On successful authentication, sets httpOnly cookies containing the access token, refresh token, and CSRF token.
+
+## Endpoint
+
+```
+POST /api/auth/login
+```
+
+## Authentication
+
+This endpoint is public and does not require authentication.
+
+## Rate Limiting
+
+- **Limit:** 5 requests per minute per IP address
+- **Window:** 60 seconds
+- **Error:** Returns 429 Too Many Requests when limit is exceeded
+
+## Request Body
+
+<ParamField body="email" type="string" required>
+  User email address. Must be a valid email format.
+  
+  **Validation:** Must be a valid email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password.
+  
+  **Validation:** Minimum length of 1 character
+</ParamField>
+
+## Response
+
+<ResponseField name="user" type="object" required>
+  Authenticated user information
+  
+  <ResponseField name="id" type="string" required>
+    User ID (stringified)
+  </ResponseField>
+  
+  <ResponseField name="email" type="string" required>
+    User email address
+  </ResponseField>
+  
+  <ResponseField name="name" type="string" required>
+    User full name (combination of first name and last name)
+  </ResponseField>
+  
+  <ResponseField name="avatarUrl" type="string" required>
+    User avatar URL or null
+  </ResponseField>
+  
+  <ResponseField name="roles" type="string[]" required>
+    Array of role names assigned to the user
+  </ResponseField>
+  
+  <ResponseField name="enabledApps" type="string[]" required>
+    Array of app codes the user has access to
+  </ResponseField>
+  
+  <ResponseField name="companyIds" type="string[]" required>
+    Array of company IDs the user belongs to (stringified)
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="companies" type="object[]" required>
+  Array of companies the user belongs to
+  
+  <ResponseField name="id" type="number" required>
+    Company ID
+  </ResponseField>
+  
+  <ResponseField name="nombre" type="string" required>
+    Company name
+  </ResponseField>
+  
+  <ResponseField name="codigo" type="string">
+    Company code (optional)
+  </ResponseField>
+</ResponseField>
+
+## Cookies Set
+
+On successful authentication, the following httpOnly cookies are set:
+
+- **kpital_token** - Access token (JWT) for API authentication
+- **kpital_refresh** - Refresh token for session renewal
+- **kpital_csrf** - CSRF token for state-changing operations
+
+## Request Example
+
+```json
+{
+  "email": "user@example.com",
+  "password": "securePassword123"
+}
+```
+
+## Response Example
+
+```json
+{
+  "user": {
+    "id": "12345",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "avatarUrl": "https://example.com/avatar.jpg",
+    "roles": ["admin", "user"],
+    "enabledApps": ["kpital", "analytics"],
+    "companyIds": ["1", "2"]
+  },
+  "companies": [
+    {
+      "id": 1,
+      "nombre": "ACME Corporation",
+      "codigo": "ACME"
+    },
+    {
+      "id": 2,
+      "nombre": "Widget Industries",
+      "codigo": "WID"
+    }
+  ]
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when credentials are invalid.
+
+```json
+{
+  "statusCode": 401,
+  "message": "Credenciales invalidas",
+  "error": "Unauthorized"
+}
+```
+
+### 429 Too Many Requests
+
+Returned when rate limit is exceeded.
+
+```json
+{
+  "statusCode": 429,
+  "message": "Too Many Requests",
+  "error": "ThrottlerException"
+}
+```
+
+### 400 Bad Request
+
+Returned when validation fails.
+
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "email must be an email",
+    "password must be longer than or equal to 1 characters"
+  ],
+  "error": "Bad Request"
+}
+```
+
+## Audit Logging
+
+This endpoint logs authentication attempts:
+
+- **Success:** Event `login_success` with user ID, email, and IP address
+- **Failure:** Event `login_failed` with email, IP address, and error reason
+
+## Notes
+
+- Authentication tokens are stored in httpOnly cookies for security
+- The CSRF token must be included in subsequent state-changing requests
+- Failed login attempts are audited for security monitoring
+- Password validation is performed against the database using bcrypt

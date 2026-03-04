@@ -1,0 +1,817 @@
+---
+title: Deductions
+description: Apply retentions and discounts to employee pay including loans, garnishments, and other payroll deductions
+icon: minus-circle
+---
+
+Deductions reduce an employee's gross pay through retentions (judicial or tax-related) and discounts (voluntary or company-initiated). The system tracks deduction types, installment schedules, and payroll associations.
+
+## Overview
+
+The personal actions system supports two types of deductions:
+
+<CardGroup cols={2}>
+  <Card title="Retentions" icon="gavel">
+    **Retenciones** are mandatory deductions imposed by external authorities.
+    
+    Examples:
+    - Court-ordered child support
+    - Wage garnishments for debt
+    - Tax liens
+    - Alimony payments
+    
+    `tipoAccion: 'retencion'` or `'deduccion_retencion'`
+  </Card>
+  
+  <Card title="Discounts" icon="hand-holding-dollar">
+    **Descuentos** are voluntary or company-initiated deductions.
+    
+    Examples:
+    - Employee loan repayment
+    - Advance salary recovery
+    - Uniform or equipment charges
+    - Cooperative contributions
+    - Savings plan deductions
+    
+    `tipoAccion: 'descuento'` or `'deduccion_descuento'`
+  </Card>
+</CardGroup>
+
+<Info>
+Both retentions and discounts follow the same technical workflow but differ in legal treatment and reporting requirements.
+</Info>
+
+## Key differences
+
+| Aspect | Retentions | Discounts |
+|--------|-----------|----------|
+| **Authority** | External (court, tax authority) | Internal (company policy, employee agreement) |
+| **Consent** | Mandatory by law | Requires employee consent |
+| **Priority** | Higher priority in payroll | Lower priority |
+| **Limits** | Set by law or court order | Subject to labor law maximums |
+| **Documentation** | Court order or official notice | Signed agreement or authorization |
+| **Reporting** | May require third-party reporting | Internal records only |
+| **Remuneracion** | Typically `false` | Can be `true` or `false` |
+
+## Creating retentions
+
+Retentions are created through the `/personal-actions/retenciones` endpoint.
+
+### Request structure
+
+```typescript
+interface UpsertRetentionDto {
+  idEmpresa: number;
+  idEmpleado: number;
+  observacion?: string;      // Document reference, case number, etc.
+  lines: RetentionLine[];    // One or more installments
+}
+
+interface RetentionLine {
+  payrollId: number;         // Target payroll
+  fechaEfecto: string;       // Effective date
+  movimientoId: number;      // Payroll movement
+  cantidad: number;          // Units (typically 1)
+  monto: number;             // Retention amount
+  remuneracion: boolean;     // Counts as salary (typically false)
+  formula?: string;          // Optional calculation
+}
+```
+
+### Example: Court-ordered child support
+
+```typescript
+POST /personal-actions/retenciones
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Child support order - Case #FAM-2026-00123, 25% of net salary. Order dated 2026-02-15",
+  "lines": [
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 30,
+      "cantidad": 1,
+      "monto": 125000.00,
+      "remuneracion": false,
+      "formula": "salario_neto * 0.25"
+    }
+  ]
+}
+```
+
+<Warning>
+Always include the court case number or official reference in the `observacion` field for retention orders. This is critical for auditing and legal compliance.
+</Warning>
+
+### Example: Recurring garnishment
+
+```typescript
+POST /personal-actions/retenciones
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Wage garnishment for credit card debt - Case #CIV-2025-08891. Monthly installments until paid.",
+  "lines": [
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 31,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false
+    },
+    {
+      "payrollId": 101,
+      "fechaEfecto": "2026-04-15",
+      "movimientoId": 31,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false
+    },
+    {
+      "payrollId": 102,
+      "fechaEfecto": "2026-04-30",
+      "movimientoId": 31,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false
+    }
+  ]
+}
+```
+
+## Creating discounts
+
+Discounts are created through the `/personal-actions/descuentos` endpoint.
+
+### Request structure
+
+```typescript
+interface UpsertDiscountDto {
+  idEmpresa: number;
+  idEmpleado: number;
+  observacion?: string;      // Description, authorization reference
+  lines: DiscountLine[];     // One or more installments
+}
+
+interface DiscountLine {
+  payrollId: number;         // Target payroll
+  fechaEfecto: string;       // Effective date
+  movimientoId: number;      // Payroll movement
+  cantidad: number;          // Units (typically 1)
+  monto: number;             // Discount amount
+  remuneracion: boolean;     // Counts as salary (varies by type)
+  formula?: string;          // Optional calculation
+}
+```
+
+### Example: Employee loan repayment
+
+```typescript
+POST /personal-actions/descuentos
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Employee loan repayment - ₡500,000 total, 10 monthly installments of ₡50,000. Loan agreement signed 2026-02-01, ref EMP-LOAN-2026-042",
+  "lines": [
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 40,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false
+    },
+    {
+      "payrollId": 101,
+      "fechaEfecto": "2026-04-15",
+      "movimientoId": 40,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false
+    }
+    // ... additional installments
+  ]
+}
+```
+
+### Example: Uniform charge
+
+```typescript
+POST /personal-actions/descuentos
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Uniform replacement - 2 sets at ₡25,000 each. Employee authorization on file.",
+  "lines": [
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 42,
+      "cantidad": 2,
+      "monto": 50000.00,
+      "remuneracion": false
+    }
+  ]
+}
+```
+
+<Note>
+For equipment or uniform charges, Costa Rican labor law requires written employee authorization and may limit deduction amounts. Always obtain signed consent before creating discount actions.
+</Note>
+
+### Example: Advance salary recovery
+
+```typescript
+POST /personal-actions/descuentos
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Recovery of salary advance issued 2026-02-20 for ₡150,000. Recovery in 3 installments per employee request.",
+  "lines": [
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 41,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false
+    },
+    {
+      "payrollId": 101,
+      "fechaEfecto": "2026-04-15",
+      "movimientoId": 41,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false
+    },
+    {
+      "payrollId": 102,
+      "fechaEfecto": "2026-04-30",
+      "movimientoId": 41,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false
+    }
+  ]
+}
+```
+
+## Approval workflow
+
+Deductions follow the standard personal action approval process.
+
+<Steps>
+  <Step title="Supervisor approval">
+    Direct supervisor verifies the deduction is appropriate and authorized.
+    
+    **Required permissions:**
+    - Retentions: `hr-action-retenciones:approve`
+    - Discounts: `hr-action-descuentos:approve`
+    
+    ```bash
+    PATCH /personal-actions/retenciones/123/advance
+    # or
+    PATCH /personal-actions/descuentos/123/advance
+    ```
+  </Step>
+  
+  <Step title="HR approval">
+    HR confirms legal compliance and documentation.
+    
+    For retentions, HR verifies:
+    - Court order or official notice on file
+    - Deduction amount is within legal limits
+    - Proper recipient payment mechanism established
+    
+    For discounts, HR verifies:
+    - Signed employee authorization
+    - Deduction amount complies with labor law
+    - Repayment schedule is reasonable
+  </Step>
+  
+  <Step title="Payroll integration">
+    Approved deductions reduce net pay in the specified payroll periods.
+  </Step>
+</Steps>
+
+## Validation rules
+
+### Amount validation
+
+<AccordionGroup>
+  <Accordion title="Costa Rican legal limits">
+    Costa Rican labor law (Codigo de Trabajo) limits total payroll deductions:
+    
+    **General rule:** Maximum 20% of salary can be deducted
+    
+    **Exceptions:**
+    - Child support: Up to 50% of net salary
+    - Cooperative savings: Up to 10% additional
+    - Social security debts: Special rules apply
+    
+    <Warning>
+    The system does not automatically enforce these limits. HR must validate compliance before approval.
+    </Warning>
+    
+    **Validation query:**
+    ```sql
+    SELECT 
+      e.id_empleado,
+      e.salario_base_empleado,
+      SUM(l.monto_linea) as total_deductions
+    FROM acc_acciones_personal a
+    LEFT JOIN acc_retenciones_lineas l ON l.id_accion = a.id_accion
+    WHERE a.id_empleado = ?
+      AND a.id_calendario_nomina = ?
+      AND a.estado_accion IN (2,3,4)
+      AND a.tipo_accion IN ('retencion', 'descuento')
+    GROUP BY e.id_empleado;
+    ```
+  </Accordion>
+  
+  <Accordion title="Field validation">
+    - `cantidad`: Must be ≥ 1
+    - `monto`: Must be ≥ 0, max 9,999,999,999.99
+    - `fechaEfecto`: Valid ISO 8601 date
+    - `remuneracion`: Typically `false` for deductions
+  </Accordion>
+</AccordionGroup>
+
+## Multi-period deductions
+
+Deductions that span multiple payroll periods use the installment system.
+
+### Automatic quota creation
+
+The system creates action quotas for each line:
+
+```typescript
+// From personal-actions.service.ts
+const quota = trx.create(ActionQuota, {
+  idAccion: savedAction.id,
+  idEmpresa: dto.idEmpresa,
+  idEmpleado: dto.idEmpleado,
+  idCalendarioNomina: line.payrollId,
+  numeroCuota: i + 1,           // Installment number
+  montoCuota: Number(line.monto), // Installment amount
+  estado: EstadoCuota.PENDIENTE_APROBACION,
+  fechaEfecto: new Date(line.fechaEfecto),
+  motivoEstado: null,
+});
+```
+
+### Quota states
+
+| State | Code | Description |
+|-------|------|-------------|
+| Pending approval | `1` | Awaiting action approval |
+| Approved | `2` | Ready for payroll processing |
+| Paid | `3` | Applied to finalized payroll |
+| Cancelled | `4` | Cancelled before payment |
+
+<Info>
+When you invalidate a deduction action, the system automatically cancels all unpaid quotas while leaving paid quotas unchanged.
+</Info>
+
+## Editing deductions
+
+Edit retentions or discounts in draft or pending states:
+
+```typescript
+PATCH /personal-actions/descuentos/123
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Updated: Reduced to 8 installments per employee request",
+  "lines": [
+    {
+      "payrollId": 100,
+      "fechaEfecto": "2026-03-31",
+      "movimientoId": 40,
+      "cantidad": 1,
+      "monto": 62500.00,  // Increased per-installment amount
+      "remuneracion": false
+    }
+    // ... 7 more installments instead of 9
+  ]
+}
+```
+
+**Required permissions:**
+- Retentions: `hr-action-retenciones:edit`
+- Discounts: `hr-action-descuentos:edit`
+
+<Warning>
+Editing replaces all existing lines. Make sure to include all installments in the update.
+</Warning>
+
+## Invalidating deductions
+
+Invalidate deductions that should no longer be applied:
+
+### Cancel a retention
+
+```bash
+PATCH /personal-actions/retenciones/123/invalidate
+Content-Type: application/json
+
+{
+  "motivo": "Court order modified - Case #FAM-2026-00123 amended 2026-03-20 reducing support obligation"
+}
+```
+
+### Cancel a discount
+
+```bash
+PATCH /personal-actions/descuentos/123/invalidate
+Content-Type: application/json
+
+{
+  "motivo": "Employee paid loan in full - early payoff on 2026-03-25"
+}
+```
+
+**Required permissions:**
+- Retentions: `hr-action-retenciones:cancel`
+- Discounts: `hr-action-descuentos:cancel`
+
+<Info>
+Invalidation only affects unpaid quotas. If some installments have already been applied to finalized payroll, those deductions remain and cannot be reversed.
+</Info>
+
+## Retrieving deduction details
+
+Get complete deduction information:
+
+```bash
+# For retentions
+GET /personal-actions/retenciones/123
+
+# For discounts
+GET /personal-actions/descuentos/123
+```
+
+### Response structure
+
+```json
+{
+  "id": 123,
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "tipoAccion": "descuento",
+  "groupId": "DESC-1709567890-p2k8n4",
+  "estado": 4,
+  "descripcion": "Employee loan repayment - 10 monthly installments",
+  "fechaEfecto": "2026-03-31",
+  "fechaInicioEfecto": "2026-03-31",
+  "fechaFinEfecto": "2026-12-31",
+  "monto": 500000.00,
+  "moneda": "CRC",
+  "aprobadoPor": 5,
+  "fechaAprobacion": "2026-03-28T09:30:00Z",
+  "lines": [
+    {
+      "idLinea": 901,
+      "idAccion": 123,
+      "payrollId": 100,
+      "payrollLabel": "Quincena 2 - Marzo 2026",
+      "payrollEstado": 1,
+      "movimientoId": 40,
+      "movimientoLabel": "Deducción - Préstamo Empleado",
+      "movimientoInactivo": false,
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false,
+      "formula": null,
+      "orden": 1,
+      "fechaEfecto": "2026-03-31"
+    },
+    {
+      "idLinea": 902,
+      "idAccion": 123,
+      "payrollId": 101,
+      "payrollLabel": "Quincena 1 - Abril 2026",
+      "payrollEstado": 1,
+      "movimientoId": 40,
+      "movimientoLabel": "Deducción - Préstamo Empleado",
+      "cantidad": 1,
+      "monto": 50000.00,
+      "remuneracion": false,
+      "orden": 2,
+      "fechaEfecto": "2026-04-15"
+    }
+    // ... additional installments
+  ]
+}
+```
+
+## Audit trail
+
+Track all changes to deductions:
+
+```bash
+# For retentions
+GET /personal-actions/retenciones/123/audit-trail?limit=50
+
+# For discounts
+GET /personal-actions/descuentos/123/audit-trail?limit=50
+```
+
+Audit entries capture:
+- Creation and modifications
+- Approval transitions
+- Amount changes
+- Invalidation reasons
+- User actions and timestamps
+
+## Payroll integration
+
+Deductions integrate with payroll through movements and calculation formulas.
+
+### Priority order
+
+Payroll calculations apply deductions in priority order:
+
+1. **Mandatory legal deductions** (social security, income tax)
+2. **Retentions** (court orders, garnishments)
+3. **Discounts** (employee agreements)
+
+<Warning>
+If net pay after higher-priority deductions is insufficient, lower-priority deductions may be skipped or reduced. The payroll engine handles this automatically.
+</Warning>
+
+### Net pay protection
+
+Costa Rican labor law requires maintaining a minimum net pay (salario mínimo). The payroll calculation engine ensures:
+
+```typescript
+// Pseudo-code for deduction limits
+const maxDeduction = Math.max(
+  gross_pay * 0.20,           // 20% general limit
+  gross_pay - minimum_wage     // Can't reduce below minimum wage
+);
+```
+
+## Database schema
+
+Deduction-specific tables:
+
+```sql
+-- Retention lines
+CREATE TABLE acc_retenciones_lineas (
+  id_linea_retencion INT PRIMARY KEY,
+  id_accion INT NOT NULL,
+  id_cuota INT,
+  id_empresa INT NOT NULL,
+  id_empleado INT NOT NULL,
+  id_calendario_nomina INT NOT NULL,
+  id_movimiento_nomina INT NOT NULL,
+  cantidad_linea INT NOT NULL,
+  monto_linea DECIMAL(12,2) NOT NULL,
+  remuneracion_linea TINYINT(1) DEFAULT 0,
+  formula_linea TEXT,
+  orden_linea INT,
+  fecha_efecto_linea DATE,
+  fecha_creacion_linea DATETIME,
+  fecha_modificacion_linea DATETIME,
+  FOREIGN KEY (id_accion) REFERENCES acc_acciones_personal(id_accion),
+  INDEX idx_ret_linea_accion (id_accion),
+  INDEX idx_ret_linea_empleado (id_empleado)
+);
+
+-- Discount lines
+CREATE TABLE acc_descuentos_lineas (
+  id_linea_descuento INT PRIMARY KEY,
+  id_accion INT NOT NULL,
+  id_cuota INT,
+  id_empresa INT NOT NULL,
+  id_empleado INT NOT NULL,
+  id_calendario_nomina INT NOT NULL,
+  id_movimiento_nomina INT NOT NULL,
+  cantidad_linea INT NOT NULL,
+  monto_linea DECIMAL(12,2) NOT NULL,
+  remuneracion_linea TINYINT(1) DEFAULT 0,
+  formula_linea TEXT,
+  orden_linea INT,
+  fecha_efecto_linea DATE,
+  fecha_creacion_linea DATETIME,
+  fecha_modificacion_linea DATETIME,
+  FOREIGN KEY (id_accion) REFERENCES acc_acciones_personal(id_accion),
+  INDEX idx_dsc_linea_accion (id_accion),
+  INDEX idx_dsc_linea_empleado (id_empleado)
+);
+```
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Document all retentions thoroughly">
+    Retentions require rigorous documentation for legal compliance:
+    
+    ```typescript
+    {
+      "observacion": "Child support - Court order #FAM-2026-00123 dated 2026-02-15. " +
+                     "25% of net salary per Article 173 Family Code. " +
+                     "Payable to: Rosa María González, Account: CR12345678901234567890. " +
+                     "Order on file in HR/Legal folder L-2026-042"
+    }
+    ```
+    
+    Include:
+    - Case/order number
+    - Date of order
+    - Legal basis
+    - Recipient information
+    - File reference
+  </Accordion>
+  
+  <Accordion title="Obtain written authorization for discounts">
+    All voluntary discounts require employee consent:
+    
+    ```typescript
+    {
+      "observacion": "Employee loan repayment per signed agreement dated 2026-02-01. " +
+                     "Employee authorization form #AUTH-2026-0201-042 on file. " +
+                     "₡500,000 at 0% interest, 10 equal monthly installments."
+    }
+    ```
+    
+    Store signed authorization forms and reference them in the action.
+  </Accordion>
+  
+  <Accordion title="Validate total deduction limits">
+    Before creating deductions, verify total deductions don't exceed legal limits:
+    
+    ```typescript
+    // Get existing deductions for the employee
+    const existingDeductions = await getEmployeeDeductions(
+      employeeId,
+      payrollId
+    );
+    
+    const currentTotal = existingDeductions.reduce(
+      (sum, d) => sum + d.monto,
+      0
+    );
+    
+    const proposedTotal = currentTotal + newDeduction.monto;
+    const employeeSalary = await getEmployeeSalary(employeeId);
+    
+    if (proposedTotal > employeeSalary * 0.20) {
+      throw new Error(
+        'Total deductions exceed 20% of salary limit'
+      );
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use formulas for percentage-based deductions">
+    When deductions are calculated as a percentage, use formulas:
+    
+    ```typescript
+    {
+      "formula": "salario_neto * 0.25",  // 25% of net pay
+      "monto": 0  // Calculated by payroll engine
+    }
+    ```
+    
+    This ensures the deduction stays correct if salary changes.
+  </Accordion>
+  
+  <Accordion title="Plan installment schedules carefully">
+    When creating multi-period deductions:
+    
+    1. Verify all target payrolls are open
+    2. Align `fechaEfecto` with payroll end dates
+    3. Consider payroll frequency (weekly, bi-weekly, monthly)
+    4. Leave buffer for unexpected payroll delays
+    
+    ```typescript
+    // Good: Align with actual payroll dates
+    const payrolls = await getEligiblePayrolls(employeeId);
+    const lines = payrolls.map(p => ({
+      payrollId: p.id,
+      fechaEfecto: p.fechaFinPeriodo,
+      monto: totalAmount / payrolls.length
+    }));
+    
+    // Bad: Assume regular intervals without verification
+    const lines = Array.from({length: 10}, (_, i) => ({
+      payrollId: 100 + i,  // May not exist
+      fechaEfecto: addMonths(startDate, i),
+      monto: totalAmount / 10
+    }));
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Common scenarios
+
+### Child support order
+
+```typescript
+POST /personal-actions/retenciones
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Child support - Order #FAM-2026-00123, 30% net salary. " +
+                 "Payable monthly to Rosa González via direct deposit.",
+  "lines": [{
+    "payrollId": 100,
+    "fechaEfecto": "2026-03-31",
+    "movimientoId": 30,
+    "cantidad": 1,
+    "monto": 0,
+    "remuneracion": false,
+    "formula": "salario_neto * 0.30"
+  }]
+}
+```
+
+### Employee loan with fixed installments
+
+```typescript
+POST /personal-actions/descuentos
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Employee loan ₡500,000 - Agreement #LOAN-2026-042 dated 2026-02-01. " +
+                 "0% interest, 10 monthly installments of ₡50,000.",
+  "lines": [
+    {"payrollId": 100, "fechaEfecto": "2026-03-31", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 101, "fechaEfecto": "2026-04-15", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 102, "fechaEfecto": "2026-04-30", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 103, "fechaEfecto": "2026-05-15", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 104, "fechaEfecto": "2026-05-31", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 105, "fechaEfecto": "2026-06-15", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 106, "fechaEfecto": "2026-06-30", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 107, "fechaEfecto": "2026-07-15", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 108, "fechaEfecto": "2026-07-31", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false},
+    {"payrollId": 109, "fechaEfecto": "2026-08-15", "movimientoId": 40, "cantidad": 1, "monto": 50000, "remuneracion": false}
+  ]
+}
+```
+
+### Cooperative savings
+
+```typescript
+POST /personal-actions/descuentos
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Monthly cooperative savings contribution - 5% of salary per employee request dated 2026-03-01",
+  "lines": [{
+    "payrollId": 100,
+    "fechaEfecto": "2026-03-31",
+    "movimientoId": 45,
+    "cantidad": 1,
+    "monto": 0,
+    "remuneracion": false,
+    "formula": "salario_base * 0.05"
+  }]
+}
+```
+
+## Code reference
+
+Key implementation files:
+
+- **Service**: `/src/modules/personal-actions/personal-actions.service.ts`
+- **Entities**: 
+  - `/src/modules/personal-actions/entities/retention-line.entity.ts`
+  - `/src/modules/personal-actions/entities/discount-line.entity.ts`
+- **DTOs**:
+  - `/src/modules/personal-actions/dto/upsert-retention.dto.ts`
+  - `/src/modules/personal-actions/dto/upsert-discount.dto.ts`
+- **Controller**: `/src/modules/personal-actions/personal-actions.controller.ts:428` (retentions), `:437` (discounts)
+
+## Related topics
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="book" href="/personal-actions/overview">
+    Personal actions system overview
+  </Card>
+  <Card title="Absences" icon="calendar-xmark" href="/personal-actions/absences">
+    Track employee absences
+  </Card>
+  <Card title="Bonuses" icon="gift" href="/personal-actions/bonuses">
+    Manage employee bonuses
+  </Card>
+  <Card title="Payroll processing" icon="money-bill-wave" href="/payroll/processing">
+    How deductions affect net pay
+  </Card>
+</CardGroup>

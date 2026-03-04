@@ -1,0 +1,308 @@
+---
+title: Personal actions overview
+description: Track employee absences, bonuses, overtime, and deductions that affect payroll calculations
+---
+
+Personal actions are HR-initiated events that modify payroll calculations for specific employees. These actions track everything from absences and bonuses to overtime and deductions, ensuring accurate payroll processing.
+
+## What are personal actions?
+
+Personal actions represent changes to an employee's normal payroll that occur within a pay period. Each action type has specific workflows, validation rules, and integration points with the payroll system.
+
+<CardGroup cols={2}>
+  <Card title="Absences" icon="calendar-xmark" href="/personal-actions/absences">
+    Track justified and unjustified absences with payroll impact
+  </Card>
+  <Card title="Bonuses" icon="gift" href="/personal-actions/bonuses">
+    Manage salary-based and non-salary bonuses
+  </Card>
+  <Card title="Overtime" icon="clock" href="/personal-actions/overtime">
+    Record and calculate overtime hours by shift type
+  </Card>
+  <Card title="Deductions" icon="minus-circle" href="/personal-actions/deductions">
+    Apply retentions and discounts to employee pay
+  </Card>
+</CardGroup>
+
+## Action lifecycle
+
+All personal actions follow a structured approval workflow to ensure proper oversight and accuracy.
+
+<Steps>
+  <Step title="Draft creation">
+    HR staff create the action with all required details and associate it with specific payroll periods.
+  </Step>
+  
+  <Step title="Supervisor approval">
+    The employee's direct supervisor reviews and approves or rejects the action.
+    
+    <Info>
+    Actions move from `DRAFT` to `PENDING_SUPERVISOR` state during this phase.
+    </Info>
+  </Step>
+  
+  <Step title="HR approval">
+    HR department performs final review and approval before the action affects payroll.
+    
+    The action moves to `PENDING_RRHH` state, then to `APPROVED` once HR confirms.
+  </Step>
+  
+  <Step title="Payroll integration">
+    Approved actions automatically associate with open payroll periods and trigger recalculation.
+    
+    <Check>
+    The system emits `personal-action.approved` events that the payroll module consumes.
+    </Check>
+  </Step>
+</Steps>
+
+## Action states
+
+Every personal action progresses through defined states that control visibility and processing.
+
+| State | Code | Description |
+|-------|------|-------------|
+| Draft | `1` | Initial creation, editable by creator |
+| Pending supervisor | `2` | Awaiting supervisor approval |
+| Pending HR | `3` | Awaiting HR department approval |
+| Approved | `4` | Approved and ready for payroll |
+| Consumed | `5` | Applied to finalized payroll |
+| Cancelled | `6` | Manually cancelled by user |
+| Invalidated | `7` | Automatically invalidated by system |
+| Expired | `8` | Expired due to time constraints |
+| Rejected | `9` | Rejected during approval process |
+
+<Warning>
+Once an action reaches `CONSUMED` state, it cannot be modified or cancelled because the payroll has been finalized.
+</Warning>
+
+## Core concepts
+
+### Payroll association
+
+Personal actions link to specific payroll calendars (`id_calendario_nomina`) to ensure they affect the correct pay period. Each action can span multiple payroll periods through **action quotas**.
+
+```typescript
+// Example: Absence spanning three pay periods
+{
+  idEmpresa: 1,
+  idEmpleado: 42,
+  tipoAccion: 'ausencia',
+  lines: [
+    { payrollId: 100, fechaEfecto: '2026-03-01', monto: 150.00 },
+    { payrollId: 101, fechaEfecto: '2026-03-15', monto: 150.00 },
+    { payrollId: 102, fechaEfecto: '2026-04-01', monto: 150.00 }
+  ]
+}
+```
+
+### Action quotas
+
+Quotas (`acc_cuotas_accion`) break down actions into individual payroll-period installments. This enables:
+
+- Multi-period deductions that span several pay cycles
+- Tracking which portions have been paid
+- Cancellation of unpaid quotas if circumstances change
+
+Each quota maintains its own state:
+- `PENDIENTE_APROBACION` (1): Awaiting approval
+- `APROBADA` (2): Approved and ready
+- `PAGADA` (3): Applied to finalized payroll
+- `CANCELADA` (4): Cancelled before payment
+
+### Group identifiers
+
+Related actions share a `groupId` to maintain logical relationships. For example, when you create an absence spanning multiple payrolls, the system generates one action per payroll but links them with the same group ID.
+
+```typescript
+const groupId = `AUS-1709567890-x4k2p9`;
+// All actions in this group represent the same logical absence
+```
+
+## Validation rules
+
+The system enforces strict validation to maintain data integrity:
+
+<AccordionGroup>
+  <Accordion title="Employee validation">
+    - Employee must belong to the specified company
+    - Employee must be in active status
+    - Employee salary information must be available
+  </Accordion>
+  
+  <Accordion title="Payroll validation">
+    - Target payroll must be in `ABIERTA` or `EN_PROCESO` state
+    - Payroll currency must match employee salary currency
+    - Payroll must not be finalized (`APLICADA` state)
+  </Accordion>
+  
+  <Accordion title="Movement validation">
+    - Payroll movement must exist and be active
+    - Movement must be configured for the action type
+    - Movement formula must be valid if specified
+  </Accordion>
+  
+  <Accordion title="Amount validation">
+    - Amounts must be non-negative
+    - Precision limited to 2 decimal places
+    - Maximum value: 9,999,999,999.99
+  </Accordion>
+</AccordionGroup>
+
+## Invalidation and cancellation
+
+Actions can be removed from payroll processing through two mechanisms:
+
+### Manual invalidation
+
+Users with appropriate permissions can manually invalidate draft or pending actions. This sets:
+- `estado` to `INVALIDATED` (7)
+- `invalidated_reason_code` to `MANUAL_INVALIDATION`
+- `invalidated_by_type` to `USER`
+
+### Automatic invalidation
+
+The system automatically invalidates actions when:
+- Employee termination becomes effective (`TERMINATION_EFFECTIVE`)
+- Company context no longer matches (`COMPANY_MISMATCH`)
+- Currency mismatch detected (`CURRENCY_MISMATCH`)
+
+<Note>
+Automatic invalidation is handled by the `personal-action-auto-invalidation.service.ts` service, which listens for employee termination events.
+</Note>
+
+## Integration points
+
+### Domain events
+
+Personal actions emit events that other modules consume:
+
+```typescript
+// When action is created
+DOMAIN_EVENTS.PERSONAL_ACTION.CREATED
+
+// When action is approved
+DOMAIN_EVENTS.PERSONAL_ACTION.APPROVED
+
+// When action is rejected
+DOMAIN_EVENTS.PERSONAL_ACTION.REJECTED
+
+// When action is cancelled/invalidated
+DOMAIN_EVENTS.PERSONAL_ACTION.CANCELED
+```
+
+### Payroll recalculation
+
+When an action is approved, the system flags affected payrolls for recalculation:
+
+```typescript
+// From personal-actions.service.ts:1041
+await this.flagRecalculationForOpenPayrolls(saved);
+```
+
+This ensures payroll amounts reflect the latest approved actions.
+
+### Audit trail
+
+Every action maintains a complete audit trail in `sys_auditoria_acciones`, tracking:
+- State changes
+- Field modifications
+- Approval/rejection decisions
+- Invalidation reasons
+
+## API endpoints
+
+Personal actions are managed through type-specific REST endpoints:
+
+<CodeGroup>
+```bash List all actions
+GET /personal-actions?idEmpresa=1&estado=4
+```
+
+```bash Create absence
+POST /personal-actions/ausencias
+Content-Type: application/json
+
+{
+  "idEmpresa": 1,
+  "idEmpleado": 42,
+  "observacion": "Medical leave",
+  "lines": [{
+    "payrollId": 100,
+    "fechaEfecto": "2026-03-15",
+    "movimientoId": 5,
+    "tipoAusencia": "JUSTIFICADA",
+    "cantidad": 1,
+    "monto": 150,
+    "remuneracion": false
+  }]
+}
+```
+
+```bash Advance state
+PATCH /personal-actions/ausencias/123/advance
+```
+
+```bash Invalidate action
+PATCH /personal-actions/ausencias/123/invalidate
+Content-Type: application/json
+
+{
+  "motivo": "Employee returned early"
+}
+```
+</CodeGroup>
+
+## Permissions
+
+Access to personal actions is controlled through fine-grained permissions:
+
+| Permission | Description |
+|------------|-------------|
+| `hr_action:view` | View all personal actions |
+| `hr_action:create` | Create new actions (base) |
+| `hr_action:approve` | Approve pending actions |
+| `hr-action-ausencias:view` | View absences |
+| `hr-action-ausencias:create` | Create absences |
+| `hr-action-ausencias:edit` | Edit draft/pending absences |
+| `hr-action-ausencias:approve` | Approve absences |
+| `hr-action-ausencias:cancel` | Invalidate absences |
+
+Each action type (ausencias, bonificaciones, horas-extras, etc.) has its own permission set following the same pattern.
+
+## Database schema
+
+Personal actions use several related tables:
+
+```
+acc_acciones_personal          # Main action record
+├── acc_cuotas_accion          # Quota breakdown by payroll
+├── acc_ausencias_lineas       # Absence details
+├── acc_bonificaciones_lineas  # Bonus details
+├── acc_horas_extras_lineas    # Overtime details
+├── acc_retenciones_lineas     # Retention details
+└── acc_descuentos_lineas      # Discount details
+```
+
+Each line table links to:
+- Parent action (`id_accion`)
+- Quota (`id_cuota`)
+- Payroll calendar (`id_calendario_nomina`)
+- Payroll movement (`id_movimiento_nomina`)
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Absences" icon="calendar-xmark" href="/personal-actions/absences">
+    Learn how to track and manage employee absences
+  </Card>
+  <Card title="Bonuses" icon="gift" href="/personal-actions/bonuses">
+    Configure and apply employee bonuses
+  </Card>
+  <Card title="Overtime" icon="clock" href="/personal-actions/overtime">
+    Calculate overtime pay by shift type
+  </Card>
+  <Card title="Deductions" icon="minus-circle" href="/personal-actions/deductions">
+    Apply retentions and discounts
+  </Card>
+</CardGroup>

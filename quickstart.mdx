@@ -1,80 +1,257 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with NewKipital in under 5 minutes
 ---
 
-## Get started in three steps
+Welcome to NewKipital! This guide will walk you through setting up your account, authenticating, and getting your first company configured.
 
-Get your documentation site running locally and make your first customization.
+## Before you begin
 
-### Step 1: Set up your local environment
+Make sure you have:
+- Access credentials (email and password) or Microsoft SSO access
+- Your company information ready (legal name, tax ID, business activity)
+- Admin privileges to invite team members
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+## Step 1: Access the platform
 
-### Step 2: Deploy your changes
+<Steps>
+  <Step title="Navigate to the login page">
+    Open your browser and go to your NewKipital instance URL. You'll see the login screen with two authentication options.
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+  <Step title="Choose your authentication method">
+    NewKipital supports two authentication methods:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    <Tabs>
+      <Tab title="Email & Password">
+        Enter your corporate email and password, then click "Iniciar sesión".
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+        ```typescript
+        // Login endpoint: POST /api/auth/login
+        {
+          "email": "user@company.com",
+          "password": "your-secure-password"
+        }
+        ```
 
-### Step 3: Go live
+        The system validates your credentials and creates a secure session with JWT tokens stored in HTTP-only cookies.
+      </Tab>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+      <Tab title="Microsoft SSO">
+        Click the "Microsoft" button to authenticate via your organization's Microsoft account.
+
+        The system will:
+        1. Open a popup window with Microsoft's OAuth 2.0 authorization
+        2. Validate your tenant ID against allowed domains
+        3. Exchange the authorization code for tokens using PKCE flow
+        4. Create your NewKipital session
+
+        <Note>
+          Your Microsoft tenant ID and allowed email domains must be configured by your system administrator in the backend environment variables (`MICROSOFT_TENANT_ID`, `MICROSOFT_ALLOWED_DOMAINS`).
+        </Note>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Complete first login">
+    Upon successful authentication, you'll be redirected to the company selection page. If this is your first time logging in and no companies are assigned to you yet, proceed to the next section.
+  </Step>
+</Steps>
+
+## Step 2: Add your first company
+
+After logging in, you'll need to create or select a company to access the platform features.
+
+<Steps>
+  <Step title="Navigate to company management">
+    From the dashboard, access the company management section. You'll need the `company:create` permission to add a new company.
+  </Step>
+
+  <Step title="Fill in company details">
+    Provide the required information:
+
+    <CodeGroup>
+      ```typescript Request
+      // POST /api/companies
+      {
+        "nombre": "ACME Corp",
+        "nombreLegal": "ACME Corporation S.A.",
+        "cedula": "3-101-123456",
+        "prefijo": "ACME",
+        "actividadEconomica": "Software Development",
+        "direccionExacta": "San José, Costa Rica",
+        "telefono": "+506 2222-3333",
+        "email": "info@acme.com",
+        "codigoPostal": "10101"
+      }
+      ```
+
+      ```typescript Response
+      {
+        "success": true,
+        "data": {
+          "id": 1,
+          "nombre": "ACME Corp",
+          "nombreLegal": "ACME Corporation S.A.",
+          "cedula": "3-101-123456",
+          "prefijo": "ACME",
+          "estado": 1,
+          "fechaCreacion": "2026-03-04T10:30:00.000Z"
+        }
+      }
+      ```
+    </CodeGroup>
+
+    <Warning>
+      The `cedula` (tax ID) and `prefijo` (prefix) fields must be unique across all companies in the system. The prefix is used to identify the company in various operations.
+    </Warning>
+  </Step>
+
+  <Step title="Upload company logo (optional)">
+    You can add a company logo to personalize your workspace:
+
+    1. Upload the image file (PNG, JPEG, WebP, or SVG, max 5MB)
+    2. The system stores it temporarily and returns a `tempFileName`
+    3. Commit the logo to associate it with your company
+
+    ```typescript
+    // POST /api/companies/logo/temp
+    // (multipart/form-data with file field)
+
+    // Then commit:
+    // POST /api/companies/:id/logo/commit
+    {
+      "tempFileName": "1234567890-abc123.png"
+    }
+    ```
+  </Step>
+
+  <Step title="Verify company creation">
+    Once created, your company will appear in the company selection dropdown. Select it to access the full platform features for that company context.
+  </Step>
+</Steps>
+
+## Step 3: Invite users to your company
+
+Grow your team by inviting users to access NewKipital.
+
+<Steps>
+  <Step title="Access user management">
+    Navigate to the users section. You'll need the appropriate permissions to manage users and their access.
+  </Step>
+
+  <Step title="Create a new user">
+    When creating a user in NewKipital, you're establishing their digital identity. Note that users and employees are separate entities:
+
+    - **User** = Digital identity for login (in `sys_usuarios` table)
+    - **Employee** = HR/payroll record (in `sys_empleados` table)
+
+    These can be linked but are managed independently.
+
+    <Note>
+      Users are created at the system level but are associated with specific companies through the `sys_usuario_empresa` relationship table.
+    </Note>
+  </Step>
+
+  <Step title="Assign company access">
+    After creating the user:
+
+    1. Link them to your company via the user-company association
+    2. Assign them to one or more apps (`kpital` for HR/payroll, `timewise` for time tracking)
+    3. Grant roles that define their permissions within each app
+
+    The multi-tenant architecture ensures users only see data for companies they're authorized to access.
+  </Step>
+
+  <Step title="Set permissions and roles">
+    NewKipital uses a flexible role-based access control (RBAC) system:
+
+    - **Roles**: Collections of permissions (e.g., "Administrator", "Payroll Manager", "HR Specialist")
+    - **Permissions**: Granular actions (e.g., `company:view`, `employee:create`, `payroll:approve`)
+    - **Overrides**: User-level permission overrides and global denies
+
+    The system evaluates permissions using this hierarchy:
+    1. Global permission denies (highest priority)
+    2. User-specific permission overrides
+    3. Role-based permissions
+    4. Role exclusions
+
+    <Warning>
+      Changes to user permissions trigger a real-time update via WebSocket to all active sessions. Users don't need to log out and back in to see permission changes.
+    </Warning>
+  </Step>
+
+  <Step title="Send credentials">
+    Share the login credentials with the new user. If using Microsoft SSO, ensure their email domain is in the allowed list.
+
+    On first login, users may be prompted to change their password if `requiresPasswordReset` is set.
+  </Step>
+</Steps>
+
+## Step 4: Switch between companies and apps
+
+Users with access to multiple companies or apps can easily switch context.
+
+<CodeGroup>
+  ```typescript Switch Company
+  // POST /api/auth/switch-company
+  {
+    "companyId": 2,
+    "appCode": "kpital",
+    "refreshAuthz": true
+  }
+
+  // Response includes updated permissions
+  {
+    "companyId": 2,
+    "appCode": "kpital",
+    "permissions": ["employee:view", "employee:create", ...],
+    "roles": ["HR Specialist"]
+  }
+  ```
+
+  ```typescript Get Current Session
+  // GET /api/auth/me?companyId=1&appCode=kpital
+  {
+    "authenticated": true,
+    "user": {
+      "id": "123",
+      "email": "user@company.com",
+      "name": "John Doe",
+      "roles": ["Administrator"],
+      "enabledApps": ["kpital", "timewise"],
+      "companyIds": ["1", "2"]
+    },
+    "companies": [...],
+    "permissions": [...]
+  }
+  ```
+</CodeGroup>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you're set up, explore these features:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Architecture overview" icon="sitemap" href="/architecture">
+    Understand how NewKipital is built and organized
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference">
+    Explore the full API documentation
+  </Card>
+  <Card title="Employee management" icon="users" href="/features/employees">
+    Learn how to manage your workforce
+  </Card>
+  <Card title="Payroll processing" icon="money-bill" href="/features/payroll">
+    Process payroll for your company
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Need help?
+
+If you run into any issues:
+
+- Check the authentication logs in the backend for debugging (`AuthAuditService` records all auth events)
+- Verify your environment variables are correctly configured
+- Review the permission requirements for each action
+- Contact your system administrator for access issues

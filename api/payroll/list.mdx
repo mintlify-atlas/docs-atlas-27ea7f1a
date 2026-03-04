@@ -1,0 +1,205 @@
+---
+title: "List Payrolls"
+api: "GET /payroll"
+description: "Retrieve a list of payroll calendars with optional filtering by company, date range, and status"
+---
+
+## Authorization
+
+Requires `payroll:view` permission.
+
+## Query Parameters
+
+<ParamField query="idEmpresa" type="string" optional>
+  Filter payrolls by company ID. If not provided, returns payrolls for all companies the user has access to.
+</ParamField>
+
+<ParamField query="includeInactive" type="boolean" optional default={false}>
+  Include inactive payroll records in the results. When `false`, only active payrolls are returned.
+</ParamField>
+
+<ParamField query="inactiveOnly" type="boolean" optional default={false}>
+  Return only inactive payroll records. Takes precedence over `includeInactive`.
+</ParamField>
+
+<ParamField query="fechaDesde" type="string" optional>
+  Filter payrolls with period end date on or after this date. Format: ISO 8601 date string (YYYY-MM-DD).
+</ParamField>
+
+<ParamField query="fechaHasta" type="string" optional>
+  Filter payrolls with period start date on or before this date. Format: ISO 8601 date string (YYYY-MM-DD).
+</ParamField>
+
+## Response
+
+Returns an array of payroll calendar objects, ordered by period start date (most recent first).
+
+<ResponseField name="id" type="number" required>
+  Unique identifier for the payroll calendar.
+</ResponseField>
+
+<ResponseField name="idEmpresa" type="number" required>
+  Company ID associated with this payroll.
+</ResponseField>
+
+<ResponseField name="idPeriodoPago" type="number" required>
+  Pay period ID.
+</ResponseField>
+
+<ResponseField name="idTipoPlanilla" type="number">
+  Payroll type ID reference.
+</ResponseField>
+
+<ResponseField name="nombrePlanilla" type="string">
+  Custom name for the payroll calendar (max 150 characters).
+</ResponseField>
+
+<ResponseField name="tipoPlanilla" type="string" required>
+  Type of payroll. One of:
+  - `Regular` - Standard payroll
+  - `Aguinaldo` - Year-end bonus
+  - `Liquidacion` - Severance
+  - `Extraordinaria` - Special payroll
+</ResponseField>
+
+<ResponseField name="fechaInicioPeriodo" type="string" required>
+  Start date of the work period (ISO 8601 date).
+</ResponseField>
+
+<ResponseField name="fechaFinPeriodo" type="string" required>
+  End date of the work period (ISO 8601 date).
+</ResponseField>
+
+<ResponseField name="fechaCorte" type="string">
+  Cut-off date for calculations (ISO 8601 date).
+</ResponseField>
+
+<ResponseField name="fechaInicioPago" type="string" required>
+  Start date of the payment window (ISO 8601 date).
+</ResponseField>
+
+<ResponseField name="fechaFinPago" type="string" required>
+  End date of the payment window (ISO 8601 date).
+</ResponseField>
+
+<ResponseField name="fechaPagoProgramada" type="string">
+  Scheduled payment date (ISO 8601 date).
+</ResponseField>
+
+<ResponseField name="moneda" type="string" required>
+  Currency for the payroll. Either `CRC` (Costa Rican Colón) or `USD` (US Dollar).
+</ResponseField>
+
+<ResponseField name="estado" type="number" required>
+  Current state of the payroll:
+  - `0` - INACTIVA (Inactive)
+  - `1` - ABIERTA (Open)
+  - `2` - EN_PROCESO (Processing)
+  - `3` - VERIFICADA (Verified)
+  - `4` - APLICADA (Applied)
+  - `5` - CONTABILIZADA (Accounted)
+  - `6` - NOTIFICADA (Notified)
+</ResponseField>
+
+<ResponseField name="esInactivo" type="number" required>
+  Soft delete flag. `1` indicates the record is inactive.
+</ResponseField>
+
+<ResponseField name="descripcionEvento" type="string">
+  Event description for calendar display.
+</ResponseField>
+
+<ResponseField name="etiquetaColor" type="string">
+  Color label for UI display (max 20 characters).
+</ResponseField>
+
+<ResponseField name="prioridad" type="number">
+  Priority for ordering in UI.
+</ResponseField>
+
+<ResponseField name="fechaAplicacion" type="string">
+  Timestamp when the payroll was applied (ISO 8601 datetime).
+</ResponseField>
+
+<ResponseField name="fechaCreacion" type="string" required>
+  Record creation timestamp (ISO 8601 datetime).
+</ResponseField>
+
+<ResponseField name="fechaModificacion" type="string" required>
+  Last modification timestamp (ISO 8601 datetime).
+</ResponseField>
+
+<ResponseField name="creadoPor" type="number">
+  User ID who created the record.
+</ResponseField>
+
+<ResponseField name="modificadoPor" type="number">
+  User ID who last modified the record.
+</ResponseField>
+
+<ResponseField name="versionLock" type="number" required>
+  Optimistic concurrency control version number.
+</ResponseField>
+
+<ResponseField name="requiresRecalculation" type="number" required>
+  Flag indicating if payroll requires recalculation. `1` means recalculation is needed.
+</ResponseField>
+
+<ResponseField name="lastSnapshotAt" type="string">
+  Timestamp of the last snapshot creation (ISO 8601 datetime).
+</ResponseField>
+
+<ResponseField name="referenciaNetSuite" type="string">
+  NetSuite external reference (max 100 characters).
+</ResponseField>
+
+<ResponseField name="slotKey" type="string">
+  Unique key for period slot management.
+</ResponseField>
+
+<ResponseField name="isActiveSlot" type="number" required>
+  Indicates if this is the active payroll for its slot. `1` means active.
+</ResponseField>
+
+## Example Request
+
+```bash
+curl -X GET "https://api.newkipital.com/payroll?idEmpresa=123&fechaDesde=2026-01-01&fechaHasta=2026-03-31" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Example Response
+
+```json
+[
+  {
+    "id": 456,
+    "idEmpresa": 123,
+    "idPeriodoPago": 78,
+    "idTipoPlanilla": 1,
+    "nombrePlanilla": "Quincena 1 - Marzo 2026",
+    "tipoPlanilla": "Regular",
+    "fechaInicioPeriodo": "2026-03-01",
+    "fechaFinPeriodo": "2026-03-15",
+    "fechaCorte": "2026-03-15",
+    "fechaInicioPago": "2026-03-16",
+    "fechaFinPago": "2026-03-20",
+    "fechaPagoProgramada": "2026-03-18",
+    "moneda": "CRC",
+    "estado": 3,
+    "esInactivo": 0,
+    "versionLock": 2,
+    "requiresRecalculation": 0,
+    "isActiveSlot": 1,
+    "fechaCreacion": "2026-02-28T10:00:00Z",
+    "fechaModificacion": "2026-03-05T14:30:00Z"
+  }
+]
+```
+
+## Notes
+
+- Results are automatically filtered by companies the authenticated user has access to
+- Date range filtering compares against the work period dates, not payment dates
+- The `estado` field tracks the payroll through its lifecycle workflow
+- Active slot management prevents duplicate operational payrolls for the same period

@@ -1,0 +1,489 @@
+---
+title: Role Management
+description: Create and manage roles in NewKipital's RBAC system
+---
+
+Roles are collections of permissions that define what users can do in the system. They can be scoped to specific applications or shared globally across all apps.
+
+## Role Types
+
+### Global (Master) Roles
+
+Roles with `idApp = NULL` are visible and usable in all applications:
+
+<Card title="Master Role Example" icon="crown">
+  ```json
+  {
+    "id": 1,
+    "codigo": "MASTER",
+    "nombre": "Master Administrator",
+    "descripcion": "Full system access",
+    "idApp": null,
+    "estado": 1
+  }
+  ```
+</Card>
+
+### App-Specific Roles
+
+Roles assigned to a specific application (`idApp = 1` for kpital, `idApp = 2` for timewise):
+
+<CodeGroup>
+```json Kpital Role
+{
+  "codigo": "PAYROLL_ADMIN",
+  "nombre": "Payroll Administrator",
+  "descripcion": "Manages payroll operations",
+  "idApp": 1,
+  "estado": 1
+}
+```
+
+```json Timewise Role
+{
+  "codigo": "TIME_APPROVER",
+  "nombre": "Time Approver",
+  "descripcion": "Approves time entries",
+  "idApp": 2,
+  "estado": 1
+}
+```
+</CodeGroup>
+
+## Creating Roles
+
+<Tip>
+  Role codes should be uppercase snake_case and descriptive. They are permanent identifiers.
+</Tip>
+
+### API Endpoint
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.newkipital.com/roles \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "codigo": "ACCOUNTANT",
+    "nombre": "Accountant",
+    "descripcion": "Financial accounting role",
+    "appCode": "kpital"
+  }'
+```
+
+```typescript TypeScript SDK
+import { RolesService } from '@newkipital/sdk';
+
+const role = await rolesService.create({
+  codigo: 'ACCOUNTANT',
+  nombre: 'Accountant',
+  descripcion: 'Financial accounting role',
+  appCode: 'kpital'
+}, currentUserId);
+```
+</CodeGroup>
+
+### Request Schema
+
+```typescript Source: create-role.dto.ts:9
+export class CreateRoleDto {
+  codigo: string;        // 2-50 chars, unique identifier
+  nombre: string;        // Display name (max 100 chars)
+  descripcion?: string;  // Optional description (max 300 chars)
+  appCode: string;       // 'kpital' | 'timewise'
+}
+```
+
+<ParamField path="codigo" type="string" required>
+  Unique role code (2-50 characters). This is permanent and used in code references.
+</ParamField>
+
+<ParamField path="nombre" type="string" required>
+  Display name for the role (max 100 characters).
+</ParamField>
+
+<ParamField path="descripcion" type="string">
+  Optional description explaining the role's purpose (max 300 characters).
+</ParamField>
+
+<ParamField path="appCode" type="string" required>
+  Application scope: `kpital` or `timewise`.
+</ParamField>
+
+### Required Permission
+
+```text
+config:roles
+```
+
+## Listing Roles
+
+Retrieve all roles, optionally filtered by application:
+
+<CodeGroup>
+```bash All Active Roles
+curl -X GET "https://api.newkipital.com/roles" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```bash Include Inactive
+curl -X GET "https://api.newkipital.com/roles?includeInactive=true" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```bash Filter by App
+curl -X GET "https://api.newkipital.com/roles?appCode=kpital" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="includeInactive" type="boolean" default={false}>
+  Include inactive roles in the response.
+</ParamField>
+
+<ParamField query="appCode" type="string">
+  Filter by application: `kpital` or `timewise`. Returns both app-specific roles and global roles.
+</ParamField>
+
+## Updating Role Metadata
+
+Update the display name or description (code cannot be changed):
+
+<CodeGroup>
+```bash cURL
+curl -X PUT https://api.newkipital.com/roles/5 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "nombre": "Senior Accountant",
+    "descripcion": "Senior financial accounting role with approval rights"
+  }'
+```
+
+```typescript TypeScript SDK
+await rolesService.updateMetadata(5, {
+  nombre: 'Senior Accountant',
+  descripcion: 'Senior financial accounting role with approval rights'
+}, currentUserId);
+```
+</CodeGroup>
+
+<Warning>
+  Role codes (`codigo`) are immutable. If you need a different code, create a new role and migrate users.
+</Warning>
+
+## Managing Role Permissions
+
+### Assign Single Permission
+
+Add one permission to a role:
+
+```bash
+curl -X POST https://api.newkipital.com/roles/5/permissions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "idPermiso": 42
+  }'
+```
+
+**Required Permission:** `config:permissions`
+
+### Remove Permission
+
+```bash
+curl -X DELETE https://api.newkipital.com/roles/5/permissions/42 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Required Permission:** `config:permissions`
+
+### Replace All Permissions
+
+Replace the entire permission set for a role using permission codes:
+
+```bash Source: roles.service.ts:251
+curl -X PUT https://api.newkipital.com/roles/5/permissions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "permissions": [
+      "payroll:view",
+      "payroll:edit",
+      "employees:list",
+      "reports:financial"
+    ]
+  }'
+```
+
+<Info>
+  This is the recommended approach. The operation is atomic - it removes permissions not in the list and adds new ones.
+</Info>
+
+**Required Permission:** `config:roles`
+
+### Get Role Permissions
+
+Retrieve all active permissions assigned to a role:
+
+```bash
+curl -X GET https://api.newkipital.com/roles/5/permissions \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Response:
+
+```json
+[
+  {
+    "id": 42,
+    "codigo": "payroll:view",
+    "nombre": "View Payroll",
+    "descripcion": "View payroll information",
+    "modulo": "payroll",
+    "estado": 1
+  },
+  {
+    "id": 43,
+    "codigo": "payroll:edit",
+    "nombre": "Edit Payroll",
+    "modulo": "payroll",
+    "estado": 1
+  }
+]
+```
+
+**Required Permission:** `config:permissions`
+
+## Role Lifecycle
+
+### Inactivate Role
+
+Soft-delete a role (sets `estado = 0`):
+
+```bash Source: roles.service.ts:154
+curl -X PATCH https://api.newkipital.com/roles/5/inactivate \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+<Warning>
+  When a role is inactivated:
+  - Users with this role will lose associated permissions immediately
+  - Real-time notifications are sent to affected users
+  - The role cannot be assigned to new users
+</Warning>
+
+**Required Permission:** `config:roles`
+
+### Reactivate Role
+
+Restore an inactive role:
+
+```bash Source: roles.service.ts:176
+curl -X PATCH https://api.newkipital.com/roles/5/reactivate \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Required Permission:** `config:roles`
+
+## Real-Time Notifications
+
+When role permissions change, the system automatically:
+
+1. **Identifies affected users** - Queries `sys_usuario_rol` and `sys_usuario_rol_global`
+2. **Bumps permission version** - Invalidates cached permissions
+3. **Sends WebSocket notifications** - Live users receive instant updates
+
+```typescript Source: roles.service.ts:308
+private async notifyRolePermissionsChanged(
+  roleId: number,
+  reason: string,
+): Promise<void> {
+  const affectedUserIds = await this.getAffectedUserIdsByRole(roleId);
+  if (affectedUserIds.length === 0) return;
+
+  await this.authzVersionService.bumpUsers(affectedUserIds);
+  this.authzRealtime.notifyUsers(affectedUserIds, {
+    type: 'permissions.changed',
+    reason,
+    roleId,
+    at: new Date().toISOString(),
+  });
+}
+```
+
+## Role Validation
+
+<AccordionGroup>
+  <Accordion title="Unique Code Constraint">
+    Role codes must be unique across the system. Attempting to create a duplicate will result in:
+    
+    ```json
+    {
+      "statusCode": 409,
+      "message": "Ya existe un rol con ese codigo"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Application Validation">
+    The `appCode` must match an active application in `sys_apps`:
+    
+    ```typescript Source: roles.service.ts:50
+    const app = await this.appRepo.findOne({
+      where: { codigo: dto.appCode.trim().toLowerCase(), estado: 1 },
+    });
+    if (!app) {
+      throw new BadRequestException(
+        `Aplicacion '${dto.appCode}' no encontrada`,
+      );
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Master Role Protection">
+    The `MASTER` role is protected and cannot be modified or deleted. Attempts to modify it will fail with:
+    
+    ```json
+    {
+      "statusCode": 409,
+      "message": "El usuario MASTER esta protegido y no puede ser modificado"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Role Naming" icon="tag">
+    - Use descriptive, role-based names (not person names)
+    - Codes: `PAYROLL_ADMIN`, `HR_MANAGER`
+    - Names: "Payroll Administrator", "HR Manager"
+  </Card>
+  
+  <Card title="Permission Granularity" icon="sliders">
+    - Create specific roles for different job functions
+    - Avoid creating overly broad "power user" roles
+    - Use permission overrides for exceptions
+  </Card>
+  
+  <Card title="App Scoping" icon="puzzle-piece">
+    - Keep app-specific roles separate
+    - Use global roles only for truly cross-app permissions
+    - Consider separate roles for kpital vs timewise
+  </Card>
+  
+  <Card title="Lifecycle Management" icon="rotate">
+    - Inactivate instead of delete
+    - Audit role changes regularly
+    - Review permissions quarterly
+  </Card>
+</CardGroup>
+
+## Common Role Examples
+
+<Tabs>
+  <Tab title="Kpital Roles">
+    ```json
+    [
+      {
+        "codigo": "PAYROLL_ADMIN",
+        "nombre": "Payroll Administrator",
+        "appCode": "kpital",
+        "permissions": [
+          "payroll:view",
+          "payroll:edit",
+          "payroll:approve",
+          "employees:list"
+        ]
+      },
+      {
+        "codigo": "HR_MANAGER",
+        "nombre": "HR Manager",
+        "appCode": "kpital",
+        "permissions": [
+          "employees:list",
+          "employees:edit",
+          "employees:create",
+          "contracts:manage"
+        ]
+      },
+      {
+        "codigo": "ACCOUNTANT",
+        "nombre": "Accountant",
+        "appCode": "kpital",
+        "permissions": [
+          "payroll:view",
+          "reports:financial",
+          "accounting:view"
+        ]
+      }
+    ]
+    ```
+  </Tab>
+  
+  <Tab title="Timewise Roles">
+    ```json
+    [
+      {
+        "codigo": "TIME_APPROVER",
+        "nombre": "Time Approver",
+        "appCode": "timewise",
+        "permissions": [
+          "timesheets:view",
+          "timesheets:approve",
+          "attendance:view"
+        ]
+      },
+      {
+        "codigo": "EMPLOYEE",
+        "nombre": "Employee",
+        "appCode": "timewise",
+        "permissions": [
+          "timesheets:own:view",
+          "timesheets:own:edit",
+          "attendance:own:view"
+        ]
+      }
+    ]
+    ```
+  </Tab>
+  
+  <Tab title="Global Roles">
+    ```json
+    [
+      {
+        "codigo": "MASTER",
+        "nombre": "Master Administrator",
+        "appCode": null,
+        "permissions": ["*"]
+      },
+      {
+        "codigo": "CONFIG_ADMIN",
+        "nombre": "Configuration Administrator",
+        "appCode": null,
+        "permissions": [
+          "config:roles",
+          "config:permissions",
+          "config:users"
+        ]
+      }
+    ]
+    ```
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configure Permissions" icon="key" href="/access-control/permissions">
+    Define atomic permissions for your roles
+  </Card>
+  
+  <Card title="Assign Roles to Users" icon="user-plus" href="/access-control/user-assignment">
+    Learn how to assign roles to users
+  </Card>
+</CardGroup>

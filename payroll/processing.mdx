@@ -1,0 +1,632 @@
+---
+title: 'Payroll Processing'
+description: 'Complete guide to processing payroll from creation to application'
+---
+
+## Overview
+
+Payroll processing in NewKipital follows a structured workflow that ensures accuracy, compliance, and auditability. This guide walks through the complete lifecycle from creating a payroll to applying it and marking HR actions as consumed.
+
+<Warning>
+Payroll processing is **irreversible** once applied. Always verify results carefully before applying.
+</Warning>
+
+## Processing Workflow
+
+The complete payroll workflow involves these steps:
+
+<Steps>
+  <Step title="Create Payroll">
+    Define the payroll period, company, type, and payment dates
+  </Step>
+  
+  <Step title="Process">
+    Collect employee data and approved HR actions, create snapshots
+  </Step>
+  
+  <Step title="Review Results">
+    Verify calculations, check totals, review employee-by-employee details
+  </Step>
+  
+  <Step title="Verify">
+    Mark payroll as verified, ready for approval
+  </Step>
+  
+  <Step title="Apply">
+    Finalize payroll, mark HR actions as consumed (immutable)
+  </Step>
+  
+  <Step title="Export/Notify">
+    Generate reports, export to accounting, notify employees
+  </Step>
+</Steps>
+
+## Step 1: Create Payroll
+
+### API Endpoint
+
+```http
+POST /api/payroll
+Content-Type: application/json
+```
+
+### Request Body
+
+```typescript
+interface CreatePayrollDto {
+  idEmpresa: number;              // Company ID
+  idPeriodoPago: number;          // Pay period frequency ID
+  idTipoPlanilla?: number;        // Payroll type ID (optional)
+  nombrePlanilla?: string;        // Custom name (optional)
+  tipoPlanilla?: string;          // Type: Regular, Aguinaldo, etc.
+  
+  // Work period
+  periodoInicio: string;          // Start date (YYYY-MM-DD)
+  periodoFin: string;             // End date (YYYY-MM-DD)
+  fechaCorte?: string;            // Cutoff date for HR actions
+  
+  // Payment window
+  fechaInicioPago: string;        // Payment window start
+  fechaFinPago: string;           // Payment window end
+  fechaPagoProgramada?: string;   // Scheduled payment date
+  
+  moneda?: 'CRC' | 'USD';        // Currency (default: CRC)
+  descripcionEvento?: string;     // Description/notes
+  etiquetaColor?: string;         // Color label for UI
+}
+```
+
+### Example: Create Bi-Weekly Payroll
+
+```json
+{
+  "idEmpresa": 42,
+  "idPeriodoPago": 2,
+  "tipoPlanilla": "Regular",
+  "nombrePlanilla": "Quincena 01-2026",
+  "periodoInicio": "2026-01-01",
+  "periodoFin": "2026-01-15",
+  "fechaCorte": "2026-01-15",
+  "fechaInicioPago": "2026-01-16",
+  "fechaFinPago": "2026-01-16",
+  "fechaPagoProgramada": "2026-01-16",
+  "moneda": "CRC",
+  "descripcionEvento": "Primera quincena de enero 2026"
+}
+```
+
+### Response
+
+```json
+{
+  "id": 1001,
+  "idEmpresa": 42,
+  "nombrePlanilla": "Quincena 01-2026",
+  "estado": 1,  // ABIERTA
+  "fechaInicioPeriodo": "2026-01-01",
+  "fechaFinPeriodo": "2026-01-15",
+  "moneda": "CRC",
+  "versionLock": 0,
+  "fechaCreacion": "2026-01-10T10:00:00.000Z"
+}
+```
+
+<Info>
+The payroll is created in **Abierta** (Open) state. You can still edit it before processing.
+</Info>
+
+### Date Validation Rules
+
+The system enforces these date rules:
+
+- `periodoInicio` ≤ `periodoFin`
+- `fechaCorte` must be within `[periodoInicio, periodoFin]`
+- `fechaInicioPago` ≤ `fechaFinPago`
+- `fechaPagoProgramada` must be within `[fechaInicioPago, fechaFinPago]`
+- `fechaPagoProgramada` ≥ `fechaCorte`
+
+## Step 2: Process Payroll
+
+Processing collects all approved HR actions, creates employee snapshots, and calculates results.
+
+### API Endpoint
+
+```http
+PATCH /api/payroll/:id/process
+```
+
+### What Happens During Processing
+
+<AccordionGroup>
+  <Accordion title="1. Employee Snapshot Creation" icon="camera">
+    The system queries all active employees for the company:
+    
+    ```sql
+    SELECT * FROM sys_empleados
+    WHERE id_empresa = ?
+      AND estado_empleado = 1
+      AND fecha_ingreso_empleado <= periodoFin
+      AND (fecha_salida_empleado IS NULL OR fecha_salida_empleado >= periodoInicio)
+    ```
+    
+    For each employee, it creates a `PayrollEmployeeSnapshot` with:
+    - Current base salary
+    - Work schedule (jornada)
+    - Salary currency
+    - Bank account
+  </Accordion>
+  
+  <Accordion title="2. Auto-Invalidation" icon="filter">
+    Before collecting HR actions, the system automatically invalidates actions that shouldn't be included:
+    
+    - **TERMINATION_EFFECTIVE**: Employee terminated before payroll period
+    - **COMPANY_MISMATCH**: Action belongs to different company
+    - **CURRENCY_MISMATCH**: Action currency doesn't match payroll currency
+    
+    This ensures only relevant actions are collected.
+  </Accordion>
+  
+  <Accordion title="3. HR Action Collection" icon="list-check">
+    The system collects all **approved** HR actions that:
+    
+    - Belong to the payroll's company
+    - Are in `APPROVED` state
+    - Have not been linked to another payroll (`idCalendarioNomina IS NULL`)
+    - Have an effective date within the payroll period
+    - Were approved on or before the cutoff date (`fechaCorte`)
+    
+    ```sql
+    SELECT * FROM sys_acciones_personal
+    WHERE idEmpresa = :companyId
+      AND estado = 'APPROVED'
+      AND idCalendarioNomina IS NULL
+      AND COALESCE(fechaInicioEfecto, fechaEfecto) <= :periodoFin
+      AND COALESCE(fechaFinEfecto, fechaInicioEfecto, fechaEfecto) >= :periodoInicio
+      AND (fechaAprobacion IS NULL OR fechaAprobacion <= :fechaCorte)
+    ```
+  </Accordion>
+  
+  <Accordion title="4. Proration Calculation" icon="calculator">
+    For actions with effective date ranges, the system prorates the amount:
+    
+    **Example**: A bonus of ₡60,000 effective Jan 5-20
+    
+    - Total action days: 16 days
+    - Payroll period: Jan 1-15
+    - Overlap days: 11 days (Jan 5-15)
+    - Prorated amount: ₡60,000 × (11/16) = ₡41,250
+    
+    The snapshot stores:
+    ```json
+    {
+      "unidades": "11.0000",
+      "montoBase": "60000.000000",
+      "montoFinal": "41250.00"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="5. Retroactive Detection" icon="clock-rotate-left">
+    If an action's effective start date is **before** the payroll period start, it's marked as retroactive:
+    
+    ```typescript
+    {
+      isRetro: 1,
+      originalPeriod: "2025-12"  // YYYY-MM of original period
+    }
+    ```
+    
+    This helps identify retroactive payments in reports.
+  </Accordion>
+  
+  <Accordion title="6. Result Aggregation" icon="table">
+    For each employee, the system calculates:
+    
+    - **Total Bruto** (Gross): Sum of all income items
+    - **Total Deducciones** (Deductions): Sum of all deduction items
+    - **Total Neto** (Net): Gross - Deductions
+    
+    A `PayrollResult` record is created per employee.
+  </Accordion>
+  
+  <Accordion title="7. Action Linking" icon="link">
+    All collected actions are linked to the payroll:
+    
+    ```sql
+    UPDATE sys_acciones_personal
+    SET idCalendarioNomina = :payrollId
+    WHERE id IN (:actionIds)
+    ```
+    
+    This prevents the same action from being collected in multiple payrolls.
+  </Accordion>
+</AccordionGroup>
+
+### State Transition
+
+```
+ABIERTA (1) → EN_PROCESO (2) → [automatically returns to] EN_PROCESO (2)
+```
+
+After processing completes, the payroll remains in `EN_PROCESO` state with snapshots and results ready for review.
+
+### Example Response
+
+```json
+{
+  "id": 1001,
+  "estado": 2,  // EN_PROCESO
+  "lastSnapshotAt": "2026-01-10T10:05:23.000Z",
+  "requiresRecalculation": 0,
+  "versionLock": 1
+}
+```
+
+## Step 3: Review Results
+
+### Get Snapshot Summary
+
+```http
+GET /api/payroll/:id/snapshot-summary
+```
+
+### Response
+
+```json
+{
+  "idNomina": 1001,
+  "empleados": 47,
+  "inputs": 312,
+  "accionesLigadas": 156,
+  "totalBruto": "28450000.00",
+  "totalDeducciones": "4267500.00",
+  "totalNeto": "24182500.00"
+}
+```
+
+<Info>
+**Key Metrics:**
+- **empleados**: Number of employees included in payroll
+- **inputs**: Total payroll input snapshots (one per HR action per employee)
+- **accionesLigadas**: Number of HR actions linked to this payroll
+- **totals**: Aggregated amounts across all employees
+</Info>
+
+### Get Detailed Results
+
+```http
+GET /api/payroll/:id/results
+```
+
+This endpoint returns per-employee breakdowns with all inputs and calculated totals.
+
+## Step 4: Verify Payroll
+
+Once you've reviewed the results and confirmed they're correct, mark the payroll as verified.
+
+### API Endpoint
+
+```http
+PATCH /api/payroll/:id/verify
+```
+
+### Validation
+
+The system checks:
+- ✅ Payroll is in `EN_PROCESO` state
+- ✅ Employee snapshots exist
+- ✅ Input snapshots exist
+- ✅ Payroll results exist
+- ✅ Payroll is not inactive
+
+### State Transition
+
+```
+EN_PROCESO (2) → VERIFICADA (3)
+```
+
+### Response
+
+```json
+{
+  "id": 1001,
+  "estado": 3,  // VERIFICADA
+  "versionLock": 2
+}
+```
+
+<Note>
+From `VERIFICADA` state, you can:
+- **Apply** the payroll (final step)
+- **Reopen** to `ABIERTA` if changes are needed
+</Note>
+
+## Step 5: Apply Payroll
+
+Applying the payroll is the **final, irreversible step**. It marks all HR actions as consumed and finalizes the payroll.
+
+### API Endpoint
+
+```http
+PATCH /api/payroll/:id/apply
+Content-Type: application/json
+```
+
+### Request Body (Optional)
+
+```json
+{
+  "version": 2  // Expected versionLock (for concurrency control)
+}
+```
+
+<Warning>
+**Concurrency Control**: If another user modified the payroll, the `version` check will fail with a 409 Conflict error. Always pass the current `versionLock` value.
+</Warning>
+
+### What Happens During Apply
+
+<Steps>
+  <Step title="Version Check">
+    Verify `versionLock` matches expected version (if provided)
+  </Step>
+  
+  <Step title="State Transition">
+    Change state from `VERIFICADA` (3) to `APLICADA` (4)
+  </Step>
+  
+  <Step title="Mark Actions as Consumed">
+    All linked HR actions change from `APPROVED` to `CONSUMED` state
+  </Step>
+  
+  <Step title="Deactivate Slot">
+    Set `isActiveSlot = 0` to allow creating next period's payroll
+  </Step>
+  
+  <Step title="Apply Vacation Usage">
+    If any actions involve vacation usage, update employee vacation ledgers
+  </Step>
+  
+  <Step title="Record Timestamp">
+    Set `fechaAplicacion` to current timestamp
+  </Step>
+  
+  <Step title="Emit Events">
+    Publish domain event `PAYROLL.APPLIED` for integrations
+  </Step>
+</Steps>
+
+### State Transition
+
+```
+VERIFICADA (3) → APLICADA (4)
+```
+
+### Response
+
+```json
+{
+  "id": 1001,
+  "estado": 4,  // APLICADA
+  "fechaAplicacion": "2026-01-10T15:30:00.000Z",
+  "isActiveSlot": 0,
+  "versionLock": 3
+}
+```
+
+<Warning>
+Once applied, the payroll **cannot be modified or deleted**. HR actions are consumed and cannot be reused.
+</Warning>
+
+## Step 6: Export and Notify
+
+After applying, you typically:
+
+1. **Export to Accounting**: Generate journal entries for NetSuite or other accounting systems
+2. **Generate Reports**: Pay slips, payroll summary, tax reports
+3. **Notify Employees**: Send pay slips via email or employee portal
+4. **Process Payments**: Export bank transfer files
+
+<Note>
+These integrations are typically handled by separate endpoints or batch jobs.
+</Note>
+
+## Reopening a Payroll
+
+If you need to make changes to a `VERIFICADA` payroll before applying it:
+
+### API Endpoint
+
+```http
+PATCH /api/payroll/:id/reopen
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "motivo": "Corrección requerida en bonos de productividad"
+}
+```
+
+### State Transition
+
+```
+VERIFICADA (3) → ABIERTA (1)
+```
+
+After reopening, you can edit the payroll or re-process it.
+
+<Warning>
+You **cannot** reopen an `APLICADA` payroll. Applied payrolls are immutable.
+</Warning>
+
+## Reprocessing
+
+If new HR actions are approved after initial processing, you can reprocess:
+
+```http
+PATCH /api/payroll/:id/process
+```
+
+Reprocessing:
+- Deletes old snapshots and results
+- Collects HR actions again (including newly approved ones)
+- Recalculates everything
+
+<Info>
+This is safe because the payroll hasn't been applied yet. All data is regenerated from source.
+</Info>
+
+## Error Handling
+
+### Common Errors
+
+<AccordionGroup>
+  <Accordion title="409 Conflict: Duplicate Slot" icon="triangle-exclamation">
+    **Message**: "Ya existe una planilla operativa para este periodo..."
+    
+    **Cause**: Another payroll already exists for the same company, period, type, and currency.
+    
+    **Solution**: Check existing payrolls. You may need to delete or inactivate the duplicate.
+  </Accordion>
+  
+  <Accordion title="400 Bad Request: Invalid State Transition" icon="circle-xmark">
+    **Message**: "Solo se puede procesar una planilla en estado Abierta"
+    
+    **Cause**: Attempting an operation that's not allowed in the current state.
+    
+    **Solution**: Check the payroll's current `estado` and follow the correct workflow.
+  </Accordion>
+  
+  <Accordion title="400 Bad Request: No Snapshots" icon="camera">
+    **Message**: "No se puede verificar la planilla sin snapshot de empleados"
+    
+    **Cause**: Attempting to verify before processing.
+    
+    **Solution**: Call `/process` first to create snapshots.
+  </Accordion>
+  
+  <Accordion title="409 Conflict: Version Mismatch" icon="code-branch">
+    **Message**: "La planilla fue modificada por otro proceso..."
+    
+    **Cause**: Another user modified the payroll between your read and update.
+    
+    **Solution**: Reload the payroll and retry with the updated `versionLock`.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Approve Actions Before Cutoff" icon="clock">
+    Ensure all HR actions are approved **before** the payroll cutoff date. Actions approved after cutoff won't be collected.
+    
+    **Tip**: Set the cutoff date (`fechaCorte`) to the last day of the work period for maximum flexibility.
+  </Accordion>
+  
+  <Accordion title="Review Totals Carefully" icon="magnifying-glass-chart">
+    Before verifying:
+    - Compare totals to previous payroll periods
+    - Check for unusual spikes or drops
+    - Spot-check individual employee results
+    - Verify deductions are correct
+  </Accordion>
+  
+  <Accordion title="Use Concurrency Control" icon="shield-halved">
+    Always pass the `version` parameter when applying:
+    
+    ```json
+    {
+      "version": 2
+    }
+    ```
+    
+    This prevents conflicts in multi-user environments.
+  </Accordion>
+  
+  <Accordion title="Document Reopening" icon="file-lines">
+    When reopening a payroll, always provide a clear `motivo`:
+    
+    ```json
+    {
+      "motivo": "Error detected in overtime calculations for 3 employees"
+    }
+    ```
+    
+    This creates an audit trail.
+  </Accordion>
+  
+  <Accordion title="Test in Staging First" icon="flask">
+    For complex payrolls (e.g., aguinaldo, liquidación):
+    1. Create a test payroll in staging
+    2. Process and verify results
+    3. Once confident, create in production
+  </Accordion>
+</AccordionGroup>
+
+## Audit Trail
+
+Every payroll operation is recorded in the audit trail:
+
+### Get Audit History
+
+```http
+GET /api/payroll/:id/audit-trail?limit=100
+```
+
+### Response
+
+```json
+[
+  {
+    "id": "12345",
+    "accion": "apply",
+    "descripcion": "Planilla aplicada: Quincena 01-2026",
+    "actorUserId": 5,
+    "actorNombre": "Maria Gonzalez",
+    "actorEmail": "maria@example.com",
+    "fechaCreacion": "2026-01-10T15:30:00.000Z",
+    "cambios": [
+      {
+        "campo": "Estado",
+        "antes": "Verificada",
+        "despues": "Aplicada"
+      }
+    ]
+  },
+  {
+    "id": "12344",
+    "accion": "verify",
+    "descripcion": "Planilla verificada: Quincena 01-2026",
+    "actorUserId": 5,
+    "actorNombre": "Maria Gonzalez",
+    "fechaCreacion": "2026-01-10T14:00:00.000Z",
+    "cambios": [
+      {
+        "campo": "Estado",
+        "antes": "En proceso",
+        "despues": "Verificada"
+      }
+    ]
+  }
+]
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Payroll Overview" icon="book-open" href="/payroll/overview">
+    Understand the payroll state machine and core concepts
+  </Card>
+  <Card title="Personal Actions" icon="user-check" href="/personal-actions">
+    Learn how HR actions feed into payroll
+  </Card>
+  <Card title="Payroll Articles" icon="list" href="/payroll/articles">
+    Configure the article catalog
+  </Card>
+  <Card title="Holidays" icon="calendar-day" href="/payroll/holidays">
+    Set up the holiday calendar
+  </Card>
+</CardGroup>

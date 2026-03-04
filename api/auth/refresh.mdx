@@ -1,0 +1,118 @@
+---
+title: "Refresh Session"
+api: "POST /api/auth/refresh"
+description: "Renew the authentication session using a refresh token"
+---
+
+Renews the current authentication session by exchanging a valid refresh token for new access, refresh, and CSRF tokens. This extends the user's session without requiring re-authentication.
+
+## Endpoint
+
+```
+POST /api/auth/refresh
+```
+
+## Authentication
+
+This endpoint is public but requires a valid refresh token in the `kpital_refresh` httpOnly cookie.
+
+## Rate Limiting
+
+- **Limit:** 10 requests per minute per IP address
+- **Window:** 60 seconds
+- **Error:** Returns 429 Too Many Requests when limit is exceeded
+
+## Request Body
+
+This endpoint does not accept a request body. The refresh token is automatically read from the `kpital_refresh` cookie.
+
+## Response
+
+<ResponseField name="success" type="boolean" required>
+  Indicates whether the session was successfully renewed
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Confirmation message
+</ResponseField>
+
+## Cookies Set
+
+On successful refresh, new httpOnly cookies are set:
+
+- **kpital_token** - New access token (JWT) for API authentication
+- **kpital_refresh** - New refresh token for future session renewal
+- **kpital_csrf** - New CSRF token for state-changing operations
+
+## Response Example
+
+```json
+{
+  "success": true,
+  "message": "Sesion renovada"
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized - Missing Token
+
+Returned when the refresh token is not present in cookies.
+
+```json
+{
+  "statusCode": 401,
+  "message": "Refresh token ausente",
+  "error": "Unauthorized"
+}
+```
+
+### 401 Unauthorized - Invalid Token
+
+Returned when the refresh token is invalid, expired, or revoked.
+
+```json
+{
+  "statusCode": 401,
+  "message": "Invalid refresh token",
+  "error": "Unauthorized"
+}
+```
+
+### 429 Too Many Requests
+
+Returned when rate limit is exceeded.
+
+```json
+{
+  "statusCode": 429,
+  "message": "Too Many Requests",
+  "error": "ThrottlerException"
+}
+```
+
+## Audit Logging
+
+This endpoint logs refresh events:
+
+- **Event:** `refresh_used`
+- **Outcome:** `success`
+- **Data:** User ID, email, IP address
+
+## Token Rotation
+
+This endpoint implements token rotation for security:
+
+1. The old refresh token is invalidated
+2. A new refresh token is generated and stored
+3. A new access token is generated
+4. A new CSRF token is generated
+5. All new tokens are set in httpOnly cookies
+
+## Notes
+
+- Refresh tokens are single-use; each refresh generates a new refresh token
+- The old refresh token is revoked and cannot be reused
+- Access tokens have a shorter expiration than refresh tokens
+- The refresh token must be present in the cookie, not the request body
+- User-Agent and IP address are tracked for security monitoring

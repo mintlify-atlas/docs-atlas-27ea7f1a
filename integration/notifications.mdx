@@ -1,0 +1,490 @@
+---
+title: Notifications
+description: Send and manage user notifications with WebSocket delivery
+---
+
+## Overview
+
+The notification system enables real-time delivery of important updates to users. Notifications are:
+
+- **Persistent**: Stored in the database and delivered even if users are offline
+- **Real-time**: Instantly pushed to connected clients via WebSocket
+- **Scoped**: Can target specific users, roles, companies, or apps
+- **Trackable**: Support read/unread status and deletion
+
+<Note>
+  Notifications use Socket.IO for reliable WebSocket delivery with automatic fallback to polling.
+</Note>
+
+## Notification Types
+
+Notifications have a `tipo` field that categorizes them:
+
+- `system`: System-wide announcements
+- `payroll.approved`: Payroll was approved
+- `payroll.applied`: Payroll was applied
+- `employee.updated`: Employee information changed
+- `role.assigned`: User was assigned a new role
+- `permissions.changed`: User's permissions were updated
+
+You can define custom types based on your application needs.
+
+## Dispatching Notifications
+
+Use the `NotificationsService` to send notifications:
+
+```typescript
+import { NotificationsService } from '@/modules/notifications/notifications.service';
+
+@Injectable()
+export class PayrollService {
+  constructor(
+    private readonly notifications: NotificationsService
+  ) {}
+
+  async applyPayroll(payrollId: number, userId: number) {
+    // ... apply payroll logic
+
+    // Notify HR role in this company
+    await this.notifications.dispatch(
+      {
+        tipo: 'payroll.applied',
+        titulo: 'Nómina Aplicada',
+        mensaje: `La nómina del período ${period} ha sido aplicada exitosamente.`,
+        payload: {
+          payrollId,
+          companyId: payroll.idEmpresa,
+          period: payroll.periodo,
+          totalAmount: payroll.montoTotal
+        },
+        scope: 'ROLE',
+        idRol: HR_ROLE_ID,
+        idEmpresa: payroll.idEmpresa,
+        idApp: KPITAL_APP_ID
+      },
+      userId
+    );
+  }
+}
+```
+
+### Dispatch Parameters
+
+<ParamField path="tipo" type="string" required>
+  Notification type identifier (e.g., `payroll.applied`, `system`, `role.assigned`)
+</ParamField>
+
+<ParamField path="titulo" type="string" required>
+  Short notification title shown in the UI
+</ParamField>
+
+<ParamField path="mensaje" type="string">
+  Optional detailed message body
+</ParamField>
+
+<ParamField path="payload" type="object">
+  Additional structured data attached to the notification
+</ParamField>
+
+<ParamField path="scope" type="string" default="ROLE">
+  Delivery scope: `USER`, `ROLE`, `COMPANY`, `APP`, or `GLOBAL`
+</ParamField>
+
+<ParamField path="idApp" type="number">
+  Application ID to scope notifications
+</ParamField>
+
+<ParamField path="idEmpresa" type="number">
+  Company ID to scope notifications
+</ParamField>
+
+<ParamField path="idRol" type="number">
+  Role ID when using `ROLE` scope. All active users with this role will receive the notification
+</ParamField>
+
+<ParamField path="idUsuarios" type="number[]">
+  Array of user IDs when using `USER` scope
+</ParamField>
+
+<ParamField path="idUsuariosAdicionales" type="number[]">
+  Additional users who always receive the notification regardless of scope (e.g., the person who triggered the action)
+</ParamField>
+
+### Notification Scopes
+
+<AccordionGroup>
+  <Accordion title="USER - Specific Users">
+    Sends to a list of specific user IDs.
+    
+    ```typescript
+    await notifications.dispatch({
+      tipo: 'task.assigned',
+      titulo: 'Nueva tarea asignada',
+      scope: 'USER',
+      idUsuarios: [1001, 1002, 1003]
+    }, adminUserId);
+    ```
+  </Accordion>
+
+  <Accordion title="ROLE - All Users with Role">
+    Sends to all active users with a specific role in the given company/app.
+    
+    ```typescript
+    await notifications.dispatch({
+      tipo: 'payroll.ready',
+      titulo: 'Nómina lista para revisión',
+      scope: 'ROLE',
+      idRol: PAYROLL_ADMIN_ROLE,
+      idEmpresa: 100,
+      idApp: 1
+    }, systemUserId);
+    ```
+  </Accordion>
+
+  <Accordion title="COMPANY - All Users in Company">
+    Scope for future implementation. Currently resolves to specific users.
+  </Accordion>
+
+  <Accordion title="APP - All Users in Application">
+    Scope for future implementation. Currently resolves to specific users.
+  </Accordion>
+
+  <Accordion title="GLOBAL - All System Users">
+    System-wide notifications for maintenance, updates, etc.
+    
+    ```typescript
+    await notifications.dispatch({
+      tipo: 'system.maintenance',
+      titulo: 'Mantenimiento programado',
+      mensaje: 'El sistema estará en mantenimiento el sábado de 2-4 AM.',
+      scope: 'GLOBAL'
+    }, adminUserId);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Notification Storage
+
+Notifications are stored in two tables:
+
+### sys_notificaciones (Notification)
+
+The notification template shared by all recipients:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id_notificacion` | int | Primary key |
+| `tipo_notificacion` | varchar(60) | Type identifier (indexed) |
+| `titulo_notificacion` | varchar(200) | Title |
+| `mensaje_notificacion` | text | Optional message body |
+| `payload_notificacion` | json | Additional data |
+| `scope_notificacion` | varchar(20) | Delivery scope |
+| `id_app` | int | App filter (nullable) |
+| `id_empresa` | int | Company filter (nullable) |
+| `creado_por_notificacion` | int | Creator user ID |
+| `fecha_creacion_notificacion` | datetime | Created timestamp |
+| `fecha_expira_notificacion` | datetime | Optional expiration |
+| `estado_notificacion` | tinyint | Active status |
+
+### sys_notificacion_usuarios (NotificationUser)
+
+Per-user delivery and status tracking:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id_notificacion_usuario` | int | Primary key |
+| `id_notificacion` | int | Foreign key to notification |
+| `id_usuario_destino` | int | Recipient user ID (indexed) |
+| `estado_notificacion_usuario` | varchar(20) | `UNREAD`, `READ`, or `DELETED` (indexed) |
+| `fecha_entregada_notificacion_usuario` | datetime | Delivery timestamp |
+| `fecha_leida_notificacion_usuario` | datetime | When user marked as read |
+| `fecha_eliminada_notificacion_usuario` | datetime | When user deleted |
+
+<Info>
+  There's a unique constraint on `(id_notificacion, id_usuario_destino)` to prevent duplicate deliveries.
+</Info>
+
+## User API Endpoints
+
+Clients interact with notifications through these endpoints:
+
+### List Notifications
+
+```http
+GET /api/notifications?status=unread&appCode=kpital&companyId=100
+```
+
+Returns the 50 most recent notifications for the authenticated user.
+
+**Query Parameters:**
+- `status`: `unread` or `all` (default: `all`)
+- `appCode`: Filter by application code
+- `companyId`: Filter by company ID
+
+**Response:**
+```json
+[
+  {
+    "id": 5001,
+    "idNotificacion": 1234,
+    "tipo": "payroll.applied",
+    "titulo": "Nómina Aplicada",
+    "mensaje": "La nómina del período 2026-03 ha sido aplicada.",
+    "payload": {
+      "payrollId": 789,
+      "companyId": 100,
+      "period": "2026-03"
+    },
+    "estado": "UNREAD",
+    "fechaEntregada": "2026-03-04T10:30:00Z",
+    "fechaLeida": null,
+    "fechaCreacion": "2026-03-04T10:30:00Z"
+  }
+]
+```
+
+### Get Unread Count
+
+```http
+GET /api/notifications/unread-count?appCode=kpital&companyId=100
+```
+
+**Response:**
+```json
+{
+  "count": 5
+}
+```
+
+### Mark as Read
+
+```http
+POST /api/notifications/:id/read
+```
+
+Marks a notification as read for the current user.
+
+### Mark as Deleted
+
+```http
+POST /api/notifications/:id/delete
+```
+
+Marks a notification as deleted (soft delete, not shown in lists).
+
+### Mark All as Read
+
+```http
+POST /api/notifications/read-all?appCode=kpital&companyId=100
+```
+
+Marks all unread notifications as read for the current user.
+
+<Info>
+  All endpoints require authentication via JWT in the session cookie.
+</Info>
+
+## Real-time Delivery
+
+When a notification is dispatched, it's immediately pushed to connected clients via WebSocket. See [Real-time Updates](/integration/real-time) for details on:
+
+- WebSocket connection setup
+- Event listeners for notifications
+- Handling connection failures
+
+### WebSocket Events Emitted
+
+```typescript
+// New notification created
+{
+  event: 'notification:new',
+  data: { idNotificacion: 1234 }
+}
+
+// Unread count changed (after read/delete)
+{
+  event: 'notification:count-update'
+}
+
+// Notification list changed (after delete)
+{
+  event: 'notification:list-update'
+}
+```
+
+<Note>
+  The gateway emits minimal data. Clients should fetch full notification details via the REST API.
+</Note>
+
+## Service Methods
+
+The `NotificationsService` exposes these methods:
+
+### listForUser()
+
+```typescript
+async listForUser(
+  idUsuario: number,
+  status: 'unread' | 'all' = 'all',
+  idApp?: number,
+  idEmpresa?: number
+): Promise<NotificationListItem[]>
+```
+
+Fetches notifications for a user with optional filtering.
+
+### getUnreadCount()
+
+```typescript
+async getUnreadCount(
+  idUsuario: number,
+  idApp?: number,
+  idEmpresa?: number
+): Promise<number>
+```
+
+Returns the count of unread notifications.
+
+### markAsRead()
+
+```typescript
+async markAsRead(
+  idNotifUsuario: number,
+  idUsuario: number
+): Promise<void>
+```
+
+Marks a notification as read and emits a count update event.
+
+### markAsDeleted()
+
+```typescript
+async markAsDeleted(
+  idNotifUsuario: number,
+  idUsuario: number
+): Promise<void>
+```
+
+Marks a notification as deleted and emits count and list update events.
+
+### markAllAsRead()
+
+```typescript
+async markAllAsRead(
+  idUsuario: number,
+  idApp?: number,
+  idEmpresa?: number
+): Promise<void>
+```
+
+Marks all unread notifications as read for a user.
+
+### dispatch()
+
+```typescript
+async dispatch(
+  dto: DispatchNotificationDto,
+  creadoPor: number
+): Promise<{ idNotificacion: number; recipientsCount: number }>
+```
+
+Creates and delivers a notification. Returns the notification ID and number of recipients.
+
+<Warning>
+  If no users match the scope criteria, the notification is still created but delivered to no one (`recipientsCount: 0`).
+</Warning>
+
+## Example Integration
+
+Here's a complete example of integrating notifications into a service:
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Role } from '@/modules/access-control/entities/role.entity';
+
+@Injectable()
+export class PersonalActionsService {
+  private readonly APPROVER_ROLE_CODE = 'hr_approver';
+
+  constructor(
+    private readonly notifications: NotificationsService,
+    @InjectRepository(Role)
+    private readonly roleRepo: Repository<Role>
+  ) {}
+
+  async createPersonalAction(dto: CreatePersonalActionDto, userId: number) {
+    // Create the personal action
+    const action = await this.personalActionsRepo.save({
+      idEmpleado: dto.idEmpleado,
+      tipo: dto.tipo,
+      fechaEfectiva: dto.fechaEfectiva,
+      idEmpresa: dto.idEmpresa,
+      creadoPor: userId
+    });
+
+    // Find the approver role
+    const approverRole = await this.roleRepo.findOne({
+      where: { codigo: this.APPROVER_ROLE_CODE }
+    });
+
+    if (approverRole) {
+      // Notify approvers + the creator
+      await this.notifications.dispatch(
+        {
+          tipo: 'personal-action.created',
+          titulo: 'Nueva Acción de Personal',
+          mensaje: `${dto.tipo} para ${employee.nombre} requiere aprobación.`,
+          payload: {
+            actionId: action.id,
+            employeeId: dto.idEmpleado,
+            tipo: dto.tipo,
+            fechaEfectiva: dto.fechaEfectiva
+          },
+          scope: 'ROLE',
+          idRol: approverRole.id,
+          idEmpresa: dto.idEmpresa,
+          idUsuariosAdicionales: [userId] // Creator also gets notified
+        },
+        userId
+      );
+    }
+
+    return action;
+  }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Meaningful Types" icon="tag">
+    Choose descriptive `tipo` values that clearly indicate what happened (e.g., `payroll.applied`, not `notification1`).
+  </Card>
+  
+  <Card title="Keep Titles Short" icon="text">
+    Titles should be concise (under 50 chars). Use `mensaje` for details.
+  </Card>
+  
+  <Card title="Include Action Context" icon="database">
+    Store relevant IDs in `payload` so users can navigate to the related entity.
+  </Card>
+  
+  <Card title="Scope Appropriately" icon="users">
+    Don't spam users. Send notifications only to those who need to know or take action.
+  </Card>
+</CardGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Real-time Updates" icon="bolt" href="/integration/real-time">
+    Learn how to connect to WebSocket and listen for notification events
+  </Card>
+  
+  <Card title="Domain Events" icon="diagram-project" href="/integration/events">
+    Understand the event-driven architecture powering notifications
+  </Card>
+</CardGroup>

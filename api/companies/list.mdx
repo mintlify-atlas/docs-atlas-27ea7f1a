@@ -1,0 +1,158 @@
+---
+title: "List Companies"
+api: "GET /companies"
+description: "Retrieve a list of companies based on filtering criteria"
+---
+
+## Authentication
+
+This endpoint requires authentication via Bearer token.
+
+## Authorization
+
+Required permission: `company:view`
+
+## Query Parameters
+
+<ParamField query="includeInactive" type="boolean" default="false">
+  Include inactive companies in the results along with active ones
+</ParamField>
+
+<ParamField query="inactiveOnly" type="boolean" default="false">
+  Return only inactive companies
+</ParamField>
+
+<ParamField query="all" type="boolean" default="false">
+  Return all companies regardless of user's company association
+</ParamField>
+
+## Response
+
+Returns an array of company objects.
+
+<ResponseField name="id" type="number">
+  Unique identifier for the company
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  Company name (max 200 characters)
+</ResponseField>
+
+<ResponseField name="nombreLegal" type="string">
+  Legal company name (max 300 characters)
+</ResponseField>
+
+<ResponseField name="cedula" type="string">
+  Company tax ID/cedula (max 50 characters, unique)
+</ResponseField>
+
+<ResponseField name="actividadEconomica" type="string" optional>
+  Economic activity description (max 300 characters)
+</ResponseField>
+
+<ResponseField name="prefijo" type="string">
+  Company prefix (1-10 characters, unique)
+</ResponseField>
+
+<ResponseField name="idExterno" type="string" optional>
+  External system ID (max 100 characters, unique)
+</ResponseField>
+
+<ResponseField name="direccionExacta" type="string" optional>
+  Exact physical address
+</ResponseField>
+
+<ResponseField name="telefono" type="string" optional>
+  Phone number (max 30 characters)
+</ResponseField>
+
+<ResponseField name="email" type="string" optional>
+  Company email address (max 150 characters)
+</ResponseField>
+
+<ResponseField name="codigoPostal" type="string" optional>
+  Postal code (max 20 characters)
+</ResponseField>
+
+<ResponseField name="estado" type="number">
+  Company state (1 = active, 0 = inactive)
+</ResponseField>
+
+<ResponseField name="fechaCreacion" type="string">
+  Creation timestamp (ISO 8601 format)
+</ResponseField>
+
+<ResponseField name="fechaModificacion" type="string">
+  Last modification timestamp (ISO 8601 format)
+</ResponseField>
+
+<ResponseField name="fechaInactivacion" type="string" optional>
+  Inactivation timestamp (ISO 8601 format)
+</ResponseField>
+
+<ResponseField name="creadoPor" type="number">
+  User ID who created the company
+</ResponseField>
+
+<ResponseField name="modificadoPor" type="number">
+  User ID who last modified the company
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.newkipital.com/companies?includeInactive=false" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.newkipital.com/companies', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+
+const companies = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 - Success
+[
+  {
+    "id": 1,
+    "nombre": "Acme Corporation",
+    "nombreLegal": "Acme Corporation S.A.",
+    "cedula": "3-101-123456",
+    "actividadEconomica": "Servicios de consultoría",
+    "prefijo": "ACME",
+    "idExterno": "EXT-001",
+    "direccionExacta": "Avenida Central, San José, Costa Rica",
+    "telefono": "+506 2222-3333",
+    "email": "info@acme.com",
+    "codigoPostal": "10101",
+    "estado": 1,
+    "fechaCreacion": "2024-01-15T10:30:00Z",
+    "fechaModificacion": "2024-03-01T14:20:00Z",
+    "fechaInactivacion": null,
+    "creadoPor": 1,
+    "modificadoPor": 5
+  }
+]
+```
+
+```json 401 - Unauthorized
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+```json 403 - Forbidden
+{
+  "statusCode": 403,
+  "message": "Forbidden resource",
+  "error": "Insufficient permissions"
+}
+```
+</ResponseExample>

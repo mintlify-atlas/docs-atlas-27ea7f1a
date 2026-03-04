@@ -1,0 +1,400 @@
+---
+title: 'Authentication Overview'
+description: 'Comprehensive guide to authentication in NewKipital'
+icon: 'shield-check'
+---
+
+## Introduction
+
+NewKipital implements a robust, enterprise-grade authentication system supporting multiple authentication methods:
+
+- **Email/Password Authentication** - Traditional credential-based login with bcrypt hashing
+- **Microsoft SSO** - OAuth 2.0 integration with Azure AD/Microsoft Entra ID
+- **JWT-based Sessions** - Stateless access tokens with secure refresh token rotation
+- **CSRF Protection** - Double-submit cookie pattern for state-changing operations
+- **Rate Limiting** - Distributed rate limiting using Redis
+- **Audit Trails** - Comprehensive logging of authentication events
+
+## Architecture
+
+The authentication system is built on NestJS and uses the following components:
+
+```typescript
+// Core authentication module
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([User, RefreshSession, ...]),
+    JwtModule.registerAsync(jwtConfig),
+    PassportModule,
+    AuthzModule,
+  ],
+  controllers: [AuthController],
+  providers: [
+    AuthService,
+    MicrosoftAuthService,
+    AuthAuditService,
+    AuthRateLimitService,
+  ],
+})
+export class AuthModule {}
+```
+
+## Authentication Flow
+
+<Steps>
+  <Step title="User Initiates Login">
+    User provides credentials (email/password or Microsoft SSO)
+  </Step>
+  <Step title="Credential Validation">
+    System validates credentials against the database or Microsoft identity provider
+  </Step>
+  <Step title="Token Generation">
+    Upon successful validation, the system generates:
+    - Access token (JWT, 8-hour expiration)
+    - Refresh token (30-day expiration)
+    - CSRF token (random UUID)
+  </Step>
+  <Step title="Cookie Storage">
+    Tokens are stored as httpOnly, secure cookies:
+    - `platform_token` - Access token
+    - `platform_refresh_token` - Refresh token
+    - `platform_csrf_token` - CSRF token (not httpOnly)
+  </Step>
+  <Step title="Session Persistence">
+    Refresh token is hashed and stored in `sys_refresh_sessions` table
+  </Step>
+</Steps>
+
+## Token Structure
+
+### Access Token
+
+Access tokens contain minimal claims for stateless authentication:
+
+```typescript
+interface TokenPayload {
+  sub: number;        // User ID
+  email: string;      // User email
+  type: 'access';     // Token type
+  iat: number;        // Issued at (timestamp)
+  exp: number;        // Expires at (timestamp)
+}
+```
+
+**Expiration:** 8 hours (configurable via `JWT_EXPIRATION`)
+
+### Refresh Token
+
+Refresh tokens include additional claims for rotation tracking:
+
+```typescript
+interface RefreshTokenPayload {
+  sub: number;        // User ID
+  email: string;      // User email
+  type: 'refresh';    // Token type
+  jti: string;        // JWT ID (UUID)
+  iat: number;        // Issued at
+  exp: number;        // Expires at
+}
+```
+
+**Expiration:** 30 days (configurable via `JWT_REFRESH_EXPIRATION`)
+
+## Cookie Configuration
+
+Tokens are delivered via httpOnly cookies with environment-specific settings:
+
+### Production Settings
+
+```typescript
+{
+  httpOnly: true,
+  secure: true,
+  sameSite: 'none',
+  domain: '.kpital360.com',
+  path: '/',
+  maxAge: 28800000  // 8 hours for access token
+}
+```
+
+### Development Settings
+
+```typescript
+{
+  httpOnly: true,
+  secure: false,
+  sameSite: 'lax',
+  domain: undefined,  // localhost
+  path: '/',
+  maxAge: 28800000
+}
+```
+
+<Info>
+The CSRF cookie (`platform_csrf_token`) is **not** httpOnly to allow JavaScript access for including in request headers.
+</Info>
+
+## API Endpoints
+
+### Email/Password Login
+
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "securePassword123"
+}
+```
+
+**Rate Limit:** 5 requests per minute per IP
+
+**Response:**
+
+```json
+{
+  "user": {
+    "id": "123",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "avatarUrl": null,
+    "roles": ["admin"],
+    "enabledApps": ["kpital"],
+    "companyIds": ["1", "2"]
+  },
+  "companies": [
+    {
+      "id": 1,
+      "nombre": "Company A",
+      "codigo": "CMP-A"
+    }
+  ]
+}
+```
+
+### Microsoft SSO Login
+
+See [Microsoft SSO](/auth/microsoft-sso) for detailed documentation.
+
+### Session Refresh
+
+```bash
+POST /api/auth/refresh
+```
+
+**Rate Limit:** 10 requests per minute per IP
+
+Automatically uses the `platform_refresh_token` cookie. Returns new access and refresh tokens.
+
+### Get Current User
+
+```bash
+GET /api/auth/me
+Authorization: Bearer <access_token>
+```
+
+Optional query parameters:
+- `companyId` - Filter permissions by company
+- `appCode` - Filter permissions by application
+- `refreshAuthz` - Bypass permissions cache
+
+### Logout
+
+```bash
+POST /api/auth/logout
+Authorization: Bearer <access_token>
+x-csrf-token: <csrf_token>
+```
+
+Revokes the refresh token and clears all cookies.
+
+## User Entity
+
+The `sys_usuarios` table stores user identities:
+
+```typescript
+@Entity('sys_usuarios')
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column({ nullable: true })
+  passwordHash: string | null;
+
+  @Column()
+  nombre: string;
+
+  @Column()
+  apellido: string;
+
+  // Microsoft SSO identity
+  @Column({ nullable: true })
+  microsoftOid: string | null;  // Object ID
+
+  @Column({ nullable: true })
+  microsoftTid: string | null;  // Tenant ID
+
+  // Security tracking
+  @Column({ default: 0 })
+  failedAttempts: number;
+
+  @Column({ nullable: true })
+  lockedUntil: Date | null;
+
+  @Column({ nullable: true })
+  ultimoLogin: Date | null;
+
+  @Column({ nullable: true })
+  lastLoginIp: string | null;
+
+  @Column({ default: 1 })
+  estado: number;  // 1=ACTIVE, 2=INACTIVE, 3=LOCKED
+}
+```
+
+<Warning>
+Users are **never physically deleted**. Use logical deactivation by setting `estado = 2` and populating `fechaInactivacion` and `motivoInactivacion`.
+</Warning>
+
+## Refresh Token Rotation
+
+NewKipital implements **automatic refresh token rotation** for enhanced security:
+
+1. Client requests token refresh with existing refresh token
+2. System validates token and checks `sys_refresh_sessions`
+3. If valid, system generates **new** access and refresh tokens
+4. Old refresh token is marked as `revoked` and `rotated`
+5. New refresh token is persisted with reference to previous token
+
+```typescript
+@Entity('sys_refresh_sessions')
+export class RefreshSession {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ unique: true })
+  jti: string;  // JWT ID from token
+
+  @Column()
+  userId: number;
+
+  @Column()
+  tokenHash: string;  // bcrypt hash of token
+
+  @Column()
+  expiresAt: Date;
+
+  @Column({ nullable: true })
+  revokedAt: Date | null;
+
+  @Column({ nullable: true })
+  rotatedAt: Date | null;
+
+  @Column({ nullable: true })
+  replacedByJti: string | null;  // Chain tracking
+
+  @Column({ nullable: true })
+  createdIp: string | null;
+
+  @Column({ nullable: true })
+  createdUa: string | null;  // User agent
+}
+```
+
+<Info>
+Refresh tokens are stored as **bcrypt hashes** for additional security. Even with database access, tokens cannot be used without the original value.
+</Info>
+
+## Security Features
+
+### Password Security
+
+- Passwords are hashed using **bcrypt** with cost factor 10
+- Minimum length validation enforced at API level
+- Failed login attempts are tracked per user
+- Accounts are temporarily locked after excessive failures
+
+### Rate Limiting
+
+Distributed rate limiting using Redis (with in-memory fallback):
+
+```typescript
+// Login endpoint: 5 requests per minute
+await rateLimit.consume(`login:${ip}`, 5, 60_000);
+
+// Refresh endpoint: 10 requests per minute
+await rateLimit.consume(`refresh:${ip}`, 10, 60_000);
+
+// Microsoft exchange: 10 requests per minute
+await rateLimit.consume(`microsoft-exchange:${ip}`, 10, 60_000);
+```
+
+### Audit Logging
+
+All authentication events are logged to `sys_domain_events`:
+
+- `login_success` / `login_failed`
+- `refresh_used`
+- `logout`
+- `microsoft_exchange_success` / `microsoft_exchange_failed`
+- `microsoft_validate_failed`
+- `switch_company`
+
+```typescript
+await audit.record({
+  event: 'login_success',
+  outcome: 'success',
+  userId: user.id,
+  email: user.email,
+  ip: clientIp,
+  metadata: { provider: 'email_password' }
+});
+```
+
+## Environment Variables
+
+```bash
+# JWT Configuration
+JWT_SECRET=your-secret-key-min-32-chars
+JWT_EXPIRATION=8h
+JWT_REFRESH_EXPIRATION=30d
+
+# Environment
+NODE_ENV=production  # or 'development'
+
+# Microsoft SSO (optional)
+MICROSOFT_CLIENT_ID=azure-app-client-id
+MICROSOFT_CLIENT_SECRET=azure-app-secret
+MICROSOFT_TENANT_ID=azure-tenant-id
+MICROSOFT_REDIRECT_URI=https://app.kpital360.com/auth/callback
+MICROSOFT_ALLOWED_DOMAINS=kpital360.com,example.com
+
+# Redis (optional, for distributed rate limiting)
+REDIS_HOST=redis.example.com
+REDIS_PORT=6379
+REDIS_PASSWORD=redis-password
+
+# Cache TTL for permissions (milliseconds)
+AUTHZ_CACHE_TTL_MS=60000
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Microsoft SSO" icon="microsoft" href="/auth/microsoft-sso">
+    Configure OAuth 2.0 with Azure AD
+  </Card>
+  <Card title="Session Management" icon="clock-rotate-left" href="/auth/session-management">
+    Token lifecycle and refresh flows
+  </Card>
+  <Card title="CSRF Protection" icon="shield-halved" href="/auth/csrf-protection">
+    Double-submit cookie pattern
+  </Card>
+  <Card title="Authorization" icon="key" href="/authorization/overview">
+    Role-based access control (RBAC)
+  </Card>
+</CardGroup>

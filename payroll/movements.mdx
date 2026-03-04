@@ -1,0 +1,444 @@
+---
+title: 'Payroll Movements'
+description: 'Manual adjustments and recurring payroll entries linked to specific articles'
+---
+
+## Overview
+
+Payroll Movements (Movimientos de Nómina) allow you to create manual adjustments and recurring entries that feed into payroll processing. Unlike one-time HR actions, movements are **templates** that can be applied across multiple payroll periods.
+
+Movements are ideal for:
+- Recurring allowances or deductions
+- Manual corrections to payroll
+- Employee-specific adjustments not covered by standard HR actions
+- Formula-based calculations
+
+<Info>
+Movements are linked to **Payroll Articles**, which define the accounting treatment and concept type.
+</Info>
+
+## Entity Structure
+
+### PayrollMovement
+
+```typescript
+interface PayrollMovement {
+  id: number;
+  idEmpresa: number;              // Company ID
+  nombre: string;                 // Movement name
+  descripcion: string;            // Description
+  
+  // Article and concept linkage
+  idArticuloNomina: number;       // Linked payroll article
+  idTipoAccionPersonal: number;   // Personal action type (concept)
+  
+  // Optional cost center assignment
+  idClase: number;                // Cost center/class
+  idProyecto: number;             // Project
+  
+  // Amount calculation
+  esMontoFijo: number;            // 1 = fixed amount, 0 = percentage
+  montoFijo: string;              // Fixed amount (if esMontoFijo = 1)
+  porcentaje: string;             // Percentage (if esMontoFijo = 0)
+  formulaAyuda: string;           // Helper formula/notes
+  
+  esInactivo: number;             // Inactive flag
+  fechaCreacion: Date;
+  fechaModificacion: Date;
+}
+```
+
+## Creating Movements
+
+### API Endpoint
+
+```http
+POST /api/payroll-movements
+Content-Type: application/json
+```
+
+### Request Body
+
+```typescript
+interface CreatePayrollMovementDto {
+  idEmpresa: number;              // Required: Company ID (min: 1)
+  nombre: string;                 // Required: Movement name (max: 200 chars)
+  idArticuloNomina: number;       // Required: Payroll article ID
+  idTipoAccionPersonal: number;   // Required: Action type ID
+  
+  // Optional assignments
+  idClase?: number;               // Cost center
+  idProyecto?: number;            // Project
+  descripcion?: string;           // Description (max: 2000 chars)
+  
+  // Amount specification
+  esMontoFijo: number;            // 0 or 1
+  montoFijo: string;              // Decimal string
+  porcentaje: string;             // Decimal string
+  formulaAyuda?: string;          // Formula notes
+}
+```
+
+<Warning>
+Both `montoFijo` and `porcentaje` are required fields (as strings), but only one is used based on `esMontoFijo`. Set the unused field to `"0"`.
+</Warning>
+
+## Movement Types
+
+### Fixed Amount Movements
+
+Use when the amount is a specific monetary value:
+
+```json
+{
+  "idEmpresa": 42,
+  "nombre": "Subsidio de Alimentación",
+  "descripcion": "Subsidio mensual para alimentación",
+  "idArticuloNomina": 10,
+  "idTipoAccionPersonal": 8,
+  "esMontoFijo": 1,
+  "montoFijo": "50000.00",
+  "porcentaje": "0"
+}
+```
+
+**Result**: Employee receives exactly ₡50,000 per payroll period.
+
+### Percentage Movements
+
+Use when the amount is calculated as a percentage of base salary or another reference:
+
+```json
+{
+  "idEmpresa": 42,
+  "nombre": "Bono de Productividad",
+  "descripcion": "5% del salario base como bono",
+  "idArticuloNomina": 11,
+  "idTipoAccionPersonal": 9,
+  "esMontoFijo": 0,
+  "montoFijo": "0",
+  "porcentaje": "5.0",
+  "formulaAyuda": "5% del salario base mensual"
+}
+```
+
+**Result**: Employee receives 5% of their base salary as a bonus.
+
+## Examples
+
+### Example 1: Recurring Transportation Allowance
+
+```json
+{
+  "idEmpresa": 42,
+  "nombre": "Subsidio de Transporte",
+  "descripcion": "Pago mensual para gastos de transporte",
+  "idArticuloNomina": 15,
+  "idTipoAccionPersonal": 20,
+  "idClase": null,
+  "idProyecto": null,
+  "esMontoFijo": 1,
+  "montoFijo": "35000.00",
+  "porcentaje": "0",
+  "formulaAyuda": null
+}
+```
+
+### Example 2: Project-Based Allowance
+
+```json
+{
+  "idEmpresa": 42,
+  "nombre": "Incentivo Proyecto Especial",
+  "descripcion": "Incentivo para empleados asignados al proyecto X",
+  "idArticuloNomina": 18,
+  "idTipoAccionPersonal": 25,
+  "idClase": 100,
+  "idProyecto": 500,
+  "esMontoFijo": 1,
+  "montoFijo": "100000.00",
+  "porcentaje": "0",
+  "formulaAyuda": "Pago mensual mientras dure el proyecto"
+}
+```
+
+### Example 3: Loan Deduction
+
+```json
+{
+  "idEmpresa": 42,
+  "nombre": "Deducción Préstamo Personal",
+  "descripcion": "Pago mensual préstamo empleado #1234",
+  "idArticuloNomina": 30,
+  "idTipoAccionPersonal": 40,
+  "esMontoFijo": 1,
+  "montoFijo": "25000.00",
+  "porcentaje": "0",
+  "formulaAyuda": "Cuota mensual - 12 meses"
+}
+```
+
+## Updating Movements
+
+### API Endpoint
+
+```http
+PATCH /api/payroll-movements/:id
+Content-Type: application/json
+```
+
+### Request Body
+
+All fields are optional:
+
+```typescript
+interface UpdatePayrollMovementDto {
+  nombre?: string;
+  descripcion?: string;
+  idArticuloNomina?: number;
+  idTipoAccionPersonal?: number;
+  idClase?: number;
+  idProyecto?: number;
+  esMontoFijo?: number;
+  montoFijo?: string;
+  porcentaje?: string;
+  formulaAyuda?: string;
+}
+```
+
+### Example: Update Amount
+
+```json
+{
+  "montoFijo": "40000.00",
+  "descripcion": "Subsidio incrementado a ₡40,000 a partir de marzo"
+}
+```
+
+<Warning>
+**Important**: Updating a movement affects **future** payrolls only. Historical payrolls use snapshots and are never modified.
+</Warning>
+
+## Querying Movements
+
+### List All Movements for a Company
+
+```http
+GET /api/payroll-movements?idEmpresa=42
+```
+
+### Filter Options
+
+- `idEmpresa`: Filter by company (required)
+- `includeInactive=true`: Include inactive movements
+- `idArticuloNomina`: Filter by payroll article
+- `idProyecto`: Filter by project
+- `idClase`: Filter by cost center
+
+### Example Response
+
+```json
+[
+  {
+    "id": 1,
+    "idEmpresa": 42,
+    "nombre": "Subsidio de Alimentación",
+    "descripcion": "Subsidio mensual para alimentación",
+    "idArticuloNomina": 10,
+    "idTipoAccionPersonal": 8,
+    "idClase": null,
+    "idProyecto": null,
+    "esMontoFijo": 1,
+    "montoFijo": "50000.00",
+    "porcentaje": "0",
+    "formulaAyuda": null,
+    "esInactivo": 0,
+    "fechaCreacion": "2026-01-01T00:00:00.000Z",
+    "fechaModificacion": "2026-01-15T10:30:00.000Z"
+  }
+]
+```
+
+## Movement Lifecycle
+
+<Steps>
+  <Step title="Create Movement">
+    Define the movement with article, amount type, and optional cost center/project assignment.
+  </Step>
+  
+  <Step title="Associate with Employees">
+    Link the movement to specific employees (typically done through a separate assignment system or HR action).
+  </Step>
+  
+  <Step title="Payroll Processing">
+    During payroll processing, active movements are collected and converted into payroll input snapshots.
+  </Step>
+  
+  <Step title="Calculation">
+    Amounts are calculated based on fixed value or percentage, then included in the employee's payroll result.
+  </Step>
+  
+  <Step title="Snapshot Creation">
+    The calculated movement is stored as a `PayrollInputSnapshot` with `sourceType = 'MANUAL'`.
+  </Step>
+</Steps>
+
+## Cost Center and Project Assignment
+
+Movements can be assigned to specific cost centers (`idClase`) or projects (`idProyecto`) for better expense tracking:
+
+```json
+{
+  "idClase": 100,      // IT Department
+  "idProyecto": 500    // Project Alpha
+}
+```
+
+**Benefits:**
+- More granular expense allocation
+- Project-specific cost tracking
+- Department budget management
+- Better financial reporting
+
+<Info>
+If no cost center or project is specified, the expense will use the employee's default assignment.
+</Info>
+
+## Formula Helper Field
+
+The `formulaAyuda` field is a free-text field for documenting:
+- How the amount is calculated
+- What the movement represents
+- Special conditions or rules
+- Expiration dates or review dates
+
+```json
+{
+  "formulaAyuda": "10% del salario base mensual. Válido hasta diciembre 2026. Revisar en evaluación anual."
+}
+```
+
+## Deactivating Movements
+
+<Warning>
+Movements should be **deactivated** rather than deleted to preserve historical payroll data.
+</Warning>
+
+```http
+PATCH /api/payroll-movements/:id
+Content-Type: application/json
+
+{
+  "esInactivo": 1
+}
+```
+
+Inactive movements:
+- Will not be collected in future payroll processing
+- Remain visible in historical payroll reports
+- Preserve audit trail and compliance records
+
+## Movements vs. Personal Actions
+
+<AccordionGroup>
+  <Accordion title="When to Use Movements" icon="arrows-rotate">
+    **Use Movements for:**
+    - Recurring payments or deductions
+    - Manual adjustments not covered by standard HR workflows
+    - Employee-specific allowances
+    - Loan repayments
+    - Special project incentives
+    
+    **Characteristics:**
+    - Template-based (reusable)
+    - Manual creation
+    - Not tied to HR approval workflow
+  </Accordion>
+  
+  <Accordion title="When to Use Personal Actions" icon="user-check">
+    **Use Personal Actions for:**
+    - Standard HR events (bonuses, overtime, salary changes)
+    - Actions requiring approval workflow
+    - Actions with effective date ranges
+    - Retroactive adjustments
+    
+    **Characteristics:**
+    - Workflow-driven (draft → approved → consumed)
+    - Automatic collection during payroll
+    - Support for retroactive periods
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Clear Naming" icon="tag">
+    Use descriptive names that indicate:
+    - **What** is being paid/deducted
+    - **Why** (if not obvious)
+    - **Who** (if employee-specific)
+    
+    **Good**: "Subsidio Alimentación - Juan Pérez", "Deducción Préstamo #1234"
+    
+    **Bad**: "Movimiento 1", "Ajuste"
+  </Accordion>
+  
+  <Accordion title="Use Descriptions and Formulas" icon="file-lines">
+    Always fill in:
+    - `descripcion`: What this movement represents
+    - `formulaAyuda`: How to calculate or when to review
+    
+    This helps future administrators understand the purpose.
+  </Accordion>
+  
+  <Accordion title="Review Regularly" icon="calendar-check">
+    Set up a periodic review process:
+    - Monthly: Check for expired or outdated movements
+    - Quarterly: Verify amounts are still correct
+    - Annually: Audit all active movements
+  </Accordion>
+  
+  <Accordion title="Cost Center Assignment" icon="sitemap">
+    Whenever possible, assign movements to cost centers or projects:
+    - Improves financial reporting accuracy
+    - Enables better budget tracking
+    - Facilitates project profitability analysis
+  </Accordion>
+</AccordionGroup>
+
+## Common Use Cases
+
+### Recurring Allowances
+
+- **Transportation allowance**: Fixed monthly amount
+- **Meal allowance**: Fixed daily/monthly amount
+- **Cell phone allowance**: Fixed monthly amount
+- **Housing allowance**: Fixed or percentage-based
+
+### Deductions
+
+- **Loan repayments**: Fixed monthly installment
+- **Voluntary savings**: Fixed amount or percentage
+- **Union dues**: Fixed amount or percentage
+- **Uniform/equipment**: Fixed amount over several periods
+
+### Special Incentives
+
+- **Project bonuses**: Fixed amount for project duration
+- **Shift differentials**: Percentage or fixed extra pay
+- **Retention bonuses**: Temporary fixed or percentage-based
+- **Referral bonuses**: One-time or recurring fixed amounts
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Payroll Articles" icon="list" href="/payroll/articles">
+    Learn about the article catalog that movements link to
+  </Card>
+  <Card title="Personal Actions" icon="user-check" href="/personal-actions">
+    Understand the difference between movements and HR actions
+  </Card>
+  <Card title="Processing Payroll" icon="gears" href="/payroll/processing">
+    See how movements are collected during payroll processing
+  </Card>
+</CardGroup>
